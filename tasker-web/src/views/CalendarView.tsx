@@ -152,7 +152,7 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
                   <strong>{task.title}</strong>
                   <em>
                     {task.type === 'time_block' ? 'block ' : ''}
-                    {task.start_time ?? 'sin hora'}
+                    {task.start_time ?? 'no time'}
                     {task.end_time ? `-${task.end_time}` : ''}
                   </em>
                 </div>

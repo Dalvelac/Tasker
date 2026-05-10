@@ -3,7 +3,13 @@ import { EmptyState } from '../components/EmptyState'
 import { TaskCard } from '../components/TaskCard'
 import type { Section } from '../features/sections/types'
 import type { DayPeriod, Task, TaskInput } from '../features/tasks/types'
-import { dayPeriods, getPlanCandidates, getTasksByPeriod, periodLabels } from '../features/tasks/utils'
+import {
+  dayPeriods,
+  getPeriodDefaultTimeRange,
+  getPlanCandidates,
+  getTasksByPeriod,
+  periodLabels,
+} from '../features/tasks/utils'
 import { formatDateKey, todayKey } from '../lib/dates'
 
 type PlanMyDayViewProps = {
@@ -135,11 +141,23 @@ export function PlanMyDayView({
   const periodTasks = getTasksByPeriod(tasks, today)
 
   async function assignPeriod(task: Task, period: DayPeriod) {
-    await onUpdateTask(task.id, { date: today, day_period: period })
+    const { start, end } = getPeriodDefaultTimeRange(period)
+    await onUpdateTask(task.id, {
+      date: today,
+      day_period: period,
+      start_time: start,
+      end_time: end,
+    })
   }
 
   async function clearPeriod(task: Task) {
-    await onUpdateTask(task.id, { date: today, day_period: null })
+    await onUpdateTask(task.id, {
+      date: today,
+      day_period: null,
+      start_time: null,
+      end_time: null,
+      duration_minutes: null,
+    })
   }
 
   function handleDragStart(event: DragEvent<HTMLElement>, task: Task) {
@@ -170,11 +188,23 @@ export function PlanMyDayView({
     }
 
     if (zone === 'unscheduled') {
-      await onUpdateTask(taskId, { date: null, day_period: null })
+      await onUpdateTask(taskId, {
+        date: null,
+        day_period: null,
+        start_time: null,
+        end_time: null,
+        duration_minutes: null,
+      })
       return
     }
 
-    await onUpdateTask(taskId, { date: today, day_period: zone })
+    const { start, end } = getPeriodDefaultTimeRange(zone)
+    await onUpdateTask(taskId, {
+      date: today,
+      day_period: zone,
+      start_time: start,
+      end_time: end,
+    })
   }
 
   function renderDraggableTask(task: Task, activePeriod?: DayPeriod) {

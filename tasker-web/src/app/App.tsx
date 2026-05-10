@@ -58,6 +58,7 @@ function taskToInput(task: Task): TaskInput {
     day_period: task.day_period,
     recurrence_type: task.recurrence_type,
     recurrence_interval: task.recurrence_interval,
+    recurrence_days: task.recurrence_days,
     recurrence_until: task.recurrence_until,
   }
 }

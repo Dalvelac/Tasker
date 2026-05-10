@@ -13,6 +13,15 @@ type TaskFormProps = {
 
 const priorities: TaskPriority[] = ['low', 'normal', 'high', 'urgent']
 const recurrenceTypes: Array<RecurrenceType | 'none'> = ['none', 'daily', 'weekly', 'monthly']
+const weekdays = [
+  { value: '1', label: 'Mon' },
+  { value: '2', label: 'Tue' },
+  { value: '3', label: 'Wed' },
+  { value: '4', label: 'Thu' },
+  { value: '5', label: 'Fri' },
+  { value: '6', label: 'Sat' },
+  { value: '0', label: 'Sun' },
+]
 
 export function TaskForm({
   sections,
@@ -29,8 +38,25 @@ export function TaskForm({
   const [priority, setPriority] = useState<TaskPriority>(defaults.priority ?? 'normal')
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | 'none'>(defaults.recurrence_type ?? 'none')
   const [recurrenceInterval, setRecurrenceInterval] = useState(defaults.recurrence_interval?.toString() ?? '1')
+  const [recurrenceDays, setRecurrenceDays] = useState(new Set((defaults.recurrence_days ?? '').split(',').filter(Boolean)))
   const [recurrenceUntil, setRecurrenceUntil] = useState(defaults.recurrence_until ?? '')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  function toggleWeekday(day: string) {
+    setRecurrenceDays((current) => {
+      const next = new Set(current)
+      if (next.has(day)) next.delete(day)
+      else next.add(day)
+      return next
+    })
+  }
+
+  function serializedWeekdays() {
+    return weekdays
+      .map((day) => day.value)
+      .filter((day) => recurrenceDays.has(day))
+      .join(',')
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -51,6 +77,7 @@ export function TaskForm({
       type: 'task',
       recurrence_type: recurrenceType === 'none' ? null : recurrenceType,
       recurrence_interval: recurrenceType === 'none' ? null : Number(recurrenceInterval) || 1,
+      recurrence_days: recurrenceType === 'weekly' ? serializedWeekdays() || null : null,
       recurrence_until: recurrenceType === 'none' ? null : recurrenceUntil || null,
     })
     setIsSubmitting(false)
@@ -146,6 +173,23 @@ export function TaskForm({
               value={recurrenceInterval}
             />
           </label>
+          {recurrenceType === 'weekly' && (
+            <div className="form-label">
+              Weekdays
+              <div className="weekday-picker">
+                {weekdays.map((day) => (
+                  <button
+                    className={`weekday-button ${recurrenceDays.has(day.value) ? 'is-selected' : ''}`}
+                    key={day.value}
+                    onClick={() => toggleWeekday(day.value)}
+                    type="button"
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <label className="form-label">
             Until
             <input

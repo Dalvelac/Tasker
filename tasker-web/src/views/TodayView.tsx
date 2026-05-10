@@ -122,7 +122,7 @@ export function TodayView({
           <h3 className="card-title">Next task</h3>
           {nextTask ? (
             <div className="command-focus">
-              <span className="pill">{nextTask.start_time ?? 'sin hora'}</span>
+              <span className="pill">{nextTask.start_time ?? 'no time'}</span>
               <strong>{nextTask.title}</strong>
               <span>{nextTask.section_name ?? 'Inbox'}</span>
             </div>

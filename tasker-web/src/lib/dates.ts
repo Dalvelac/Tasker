@@ -16,7 +16,7 @@ export function addDays(dateKey: string, days: number) {
 }
 
 export function formatShortDate(dateKey: string) {
-  return `${formatDateKey(dateKey)} ${new Intl.DateTimeFormat('es-ES', {
+  return `${formatDateKey(dateKey)} ${new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
   }).format(new Date(`${dateKey}T00:00:00`))}`
 }
@@ -31,7 +31,7 @@ export function formatDateKey(dateKey: string | null) {
 }
 
 export function formatMonthLabel(monthKey: string) {
-  return new Intl.DateTimeFormat('es-ES', {
+  return new Intl.DateTimeFormat('en-GB', {
     month: 'long',
     year: 'numeric',
   }).format(new Date(`${monthKey}-01T00:00:00`))

@@ -64,10 +64,10 @@ export function getTimelineTasks(tasks: Task[]) {
 export function groupPlannerTasks(tasks: Task[]) {
   const today = todayKey()
   const labels = [
-    { key: today, title: `Hoy - ${formatDateKey(today)}` },
-    { key: addDays(today, 1), title: `Manana - ${formatDateKey(addDays(today, 1))}` },
-    { key: addDays(today, 2), title: `Proximos dias - ${formatShortDate(addDays(today, 2))}` },
-    { key: addDays(today, 7), title: 'Esta semana' },
+    { key: today, title: `Today - ${formatDateKey(today)}` },
+    { key: addDays(today, 1), title: `Tomorrow - ${formatDateKey(addDays(today, 1))}` },
+    { key: addDays(today, 2), title: `Upcoming days - ${formatShortDate(addDays(today, 2))}` },
+    { key: addDays(today, 7), title: 'This week' },
   ]
 
   return labels.map((label, index) => {
@@ -85,10 +85,60 @@ export function groupPlannerTasks(tasks: Task[]) {
   })
 }
 
+const weekdayLabels: Record<string, string> = {
+  '1': 'Mon',
+  '2': 'Tue',
+  '3': 'Wed',
+  '4': 'Thu',
+  '5': 'Fri',
+  '6': 'Sat',
+  '0': 'Sun',
+}
+
+export function getTaskWeekday(dateKey: string | null) {
+  if (!dateKey) return null
+  return String(new Date(`${dateKey}T00:00:00`).getDay())
+}
+
+export function normalizeRecurrenceDays(days: string | null, dateKey: string | null) {
+  if (days) return days
+  return getTaskWeekday(dateKey)
+}
+
+export function formatRecurrenceLabel(
+  task: Pick<Task, 'recurrence_type' | 'recurrence_interval' | 'recurrence_days' | 'recurrence_until' | 'date'>,
+) {
+  if (!task.recurrence_type) return null
+
+  const interval = task.recurrence_interval && task.recurrence_interval > 0 ? task.recurrence_interval : 1
+  let label: string
+
+  if (task.recurrence_type === 'daily') {
+    label = interval === 1 ? 'Every day' : `Every ${interval} days`
+  } else if (task.recurrence_type === 'weekly') {
+    const days = normalizeRecurrenceDays(task.recurrence_days, task.date)
+      ?.split(',')
+      .map((day) => weekdayLabels[day])
+      .filter(Boolean)
+      .join(', ')
+    label = `${interval === 1 ? 'Every week' : `Every ${interval} weeks`}${days ? ` on ${days}` : ''}`
+  } else {
+    label = interval === 1 ? 'Every month' : `Every ${interval} months`
+  }
+
+  return task.recurrence_until ? `${label} until ${task.recurrence_until}` : label
+}
+
 export const periodLabels: Record<DayPeriod, string> = {
   morning: 'Morning',
   afternoon: 'Afternoon',
   night: 'Night',
+}
+
+export const periodTimeRanges: Record<DayPeriod, { end: string; start: string }> = {
+  morning: { start: '06:00', end: '07:00' },
+  afternoon: { start: '12:00', end: '13:00' },
+  night: { start: '21:00', end: '22:00' },
 }
 
 export const dayPeriods = Object.keys(periodLabels) as DayPeriod[]
@@ -113,6 +163,10 @@ export function inferDayPeriodFromTime(startTime: string | null): DayPeriod | nu
 
 export function getEffectiveDayPeriod(task: Task) {
   return task.day_period ?? inferDayPeriodFromTime(task.start_time)
+}
+
+export function getPeriodDefaultTimeRange(period: DayPeriod) {
+  return periodTimeRanges[period]
 }
 
 export function getPlanCandidates(tasks: Task[], dateKey = todayKey()) {

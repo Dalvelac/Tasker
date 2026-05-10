@@ -49,6 +49,7 @@ export type TaskInput = {
   day_period?: DayPeriod | null
   recurrence_type?: RecurrenceType | null
   recurrence_interval?: number | null
+  recurrence_days?: string | null
   recurrence_until?: string | null
 }
 

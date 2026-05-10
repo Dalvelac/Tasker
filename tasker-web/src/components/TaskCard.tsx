@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import type { Section } from '../features/sections/types'
 import type { RecurrenceType, Task, TaskInput, TaskPriority, TaskStatus, TaskType } from '../features/tasks/types'
-import { addMinutesToTime, formatDuration, getTaskDurationMinutes, inferDayPeriodFromTime } from '../features/tasks/utils'
+import {
+  addMinutesToTime,
+  formatDuration,
+  formatRecurrenceLabel,
+  getTaskDurationMinutes,
+  inferDayPeriodFromTime,
+} from '../features/tasks/utils'
 import { formatDateKey, isBeforeToday, todayKey } from '../lib/dates'
 import { SectionPicker } from './SectionPicker'
 
@@ -33,12 +39,14 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
   const [type, setType] = useState<TaskType>(task.type)
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | 'none'>(task.recurrence_type ?? 'none')
   const [recurrenceInterval, setRecurrenceInterval] = useState(task.recurrence_interval?.toString() ?? '1')
+  const [recurrenceDays, setRecurrenceDays] = useState(task.recurrence_days ?? '')
   const [recurrenceUntil, setRecurrenceUntil] = useState(task.recurrence_until ?? '')
   const [isEditing, setIsEditing] = useState(false)
   const accent = task.section_color ?? '#9CA3AF'
   const isDone = task.status === 'done'
   const isTimeBlock = task.type === 'time_block'
   const durationLabel = formatDuration(getTaskDurationMinutes(task))
+  const recurrenceLabel = formatRecurrenceLabel(task)
 
   async function updateSection(value: number | null) {
     setSectionId(value)
@@ -71,6 +79,7 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
       type,
       recurrence_type: recurrenceType === 'none' ? null : recurrenceType,
       recurrence_interval: recurrenceType === 'none' ? null : Number(recurrenceInterval) || 1,
+      recurrence_days: recurrenceType === 'weekly' ? recurrenceDays || null : null,
       recurrence_until: recurrenceType === 'none' ? null : recurrenceUntil || null,
     })
     setIsEditing(false)
@@ -147,14 +156,9 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
         <div className="task-meta">
           <span className="pill">{task.section_name ?? 'Inbox'}</span>
           <span className={`pill ${task.priority === 'urgent' ? 'pill--urgent' : ''}`}>{task.priority}</span>
-          {task.recurrence_type && (
-            <span className="pill pill--recurring">
-              recurring {task.recurrence_interval && task.recurrence_interval > 1 ? `${task.recurrence_interval}x ` : ''}
-              {task.recurrence_type}
-            </span>
-          )}
+          {recurrenceLabel && <span className="pill pill--recurring">{recurrenceLabel}</span>}
           <span className={`pill ${isTimeBlock ? 'pill--block' : ''}`}>{isTimeBlock ? 'block' : task.type}</span>
-          <span className="pill">{task.start_time ?? 'sin hora'}</span>
+          <span className="pill">{task.start_time ?? 'no time'}</span>
           {task.end_time && <span className="pill">to {task.end_time}</span>}
           {durationLabel && <span className="pill">{durationLabel}</span>}
           {task.date && (
@@ -260,6 +264,17 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
                 value={recurrenceInterval}
               />
             </label>
+            {recurrenceType === 'weekly' && (
+              <label className="form-label">
+                Weekdays
+                <input
+                  className="field"
+                  onChange={(event) => setRecurrenceDays(event.target.value)}
+                  placeholder="1,3,5 for Mon, Wed, Fri"
+                  value={recurrenceDays}
+                />
+              </label>
+            )}
             <label className="form-label">
               Until
               <input

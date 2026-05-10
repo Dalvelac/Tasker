@@ -3,6 +3,7 @@ const statuses = ['pending', 'in_progress', 'done', 'cancelled', 'postponed'];
 const taskTypes = ['task', 'event', 'time_block'];
 const dayPeriods = ['morning', 'afternoon', 'night'];
 const recurrenceTypes = ['daily', 'weekly', 'monthly'];
+const weekdaysMondayFirst = ['1', '2', '3', '4', '5', '6', '0'];
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -36,6 +37,29 @@ export function optionalRecurrenceType(value: unknown) {
   }
 
   return typeof value === 'string' && recurrenceTypes.includes(value) ? value : undefined;
+}
+
+export function optionalRecurrenceDays(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const parts = value.split(',').map((part) => part.trim());
+  const unique = new Set(parts);
+
+  if (parts.length !== unique.size) {
+    return undefined;
+  }
+
+  if (parts.some((part) => !weekdaysMondayFirst.includes(part))) {
+    return undefined;
+  }
+
+  return weekdaysMondayFirst.filter((day) => unique.has(day)).join(',');
 }
 
 export function optionalDayPeriod(value: unknown) {

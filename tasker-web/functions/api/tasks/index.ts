@@ -1,5 +1,6 @@
 import type { AppContext, D1Value } from '../../_shared/db';
 import { error, json, readJson } from '../../_shared/http';
+import { getWeekday } from '../../_shared/recurrence';
 import {
   isPriority,
   isStatus,
@@ -7,6 +8,7 @@ import {
   optionalDayPeriod,
   optionalDate,
   optionalInteger,
+  optionalRecurrenceDays,
   optionalRecurrenceType,
   optionalString,
   optionalTime,
@@ -27,6 +29,7 @@ type TaskInput = {
   day_period?: string | null;
   recurrence_type?: string | null;
   recurrence_interval?: number | null;
+  recurrence_days?: string | null;
   recurrence_until?: string | null;
 };
 
@@ -176,6 +179,7 @@ export async function onRequestPost(context: AppContext) {
   const dayPeriod = body.day_period === undefined ? inferDayPeriodFromTime(startTime) : optionalDayPeriod(body.day_period);
   const recurrenceType = optionalRecurrenceType(body.recurrence_type);
   const recurrenceInterval = body.recurrence_interval === undefined ? 1 : optionalInteger(body.recurrence_interval);
+  const recurrenceDaysInput = optionalRecurrenceDays(body.recurrence_days);
   const recurrenceUntil = optionalDate(body.recurrence_until);
 
   if (date === undefined) return error('Invalid date');
@@ -189,19 +193,23 @@ export async function onRequestPost(context: AppContext) {
   if (!isTaskType(type)) return error('Invalid task type');
   if (dayPeriod === undefined) return error('Invalid day period');
   if (recurrenceType === undefined) return error('Invalid recurrence');
+  if (recurrenceDaysInput === undefined) return error('Invalid recurrence days');
   if (recurrenceInterval === undefined || (recurrenceType && (!recurrenceInterval || recurrenceInterval < 1))) {
     return error('Invalid recurrence interval');
   }
   if (recurrenceUntil === undefined) return error('Invalid recurrence until');
   if (!validateTimeBlock(type, startTime, endTime)) return error('Time blocks require start and end time');
 
+  const recurrenceDays =
+    recurrenceType === 'weekly' ? recurrenceDaysInput ?? (date ? String(getWeekday(date)) : null) : null;
+
   const result = await context.env.DB.prepare(
     `INSERT INTO tasks (
        title, notes, section_id, date, due_date, start_time, end_time,
        duration_minutes, priority, status, type, is_all_day, day_period,
-       recurrence_type, recurrence_interval, recurrence_until, completed_at
+       recurrence_type, recurrence_interval, recurrence_days, recurrence_until, completed_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
   )
     .bind(
       title,
@@ -219,6 +227,7 @@ export async function onRequestPost(context: AppContext) {
       dayPeriod,
       recurrenceType,
       recurrenceType ? recurrenceInterval : null,
+      recurrenceDays,
       recurrenceType ? recurrenceUntil : null,
       status,
     )
