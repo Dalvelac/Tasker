@@ -8,6 +8,7 @@ import { SectionPicker } from './SectionPicker'
 type TaskCardProps = {
   task: Task
   sections: Section[]
+  readonly?: boolean
   onDelete: (id: number) => Promise<void>
   onToggle: (id: number) => Promise<void>
   onUpdate: (id: number, input: TaskInput) => Promise<void>
@@ -19,7 +20,7 @@ const taskTypes: TaskType[] = ['task', 'event', 'time_block']
 const durationPresets = [30, 60, 90]
 const recurrenceTypes: Array<RecurrenceType | 'none'> = ['none', 'daily', 'weekly', 'monthly']
 
-export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskCardProps) {
+export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdate }: TaskCardProps) {
   const [sectionId, setSectionId] = useState<number | null>(task.section_id)
   const [title, setTitle] = useState(task.title)
   const [notes, setNotes] = useState(task.notes ?? '')
@@ -163,23 +164,25 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
           )}
         </div>
 
-        <div className="task-editor">
-          <SectionPicker sections={sections} value={sectionId} onChange={updateSection} />
-          <input className="field" onChange={(event) => updateDate(event.target.value)} type="date" value={date} />
-          <select
-            className="select"
-            onChange={(event) => updatePriority(event.target.value as TaskPriority)}
-            value={priority}
-          >
-            {priorities.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!readonly && (
+          <div className="task-editor">
+            <SectionPicker sections={sections} value={sectionId} onChange={updateSection} />
+            <input className="field" onChange={(event) => updateDate(event.target.value)} type="date" value={date} />
+            <select
+              className="select"
+              onChange={(event) => updatePriority(event.target.value as TaskPriority)}
+              value={priority}
+            >
+              {priorities.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        {isEditing && (
+        {!readonly && isEditing && (
           <div className="task-editor task-editor--expanded">
             <label className="form-label">
               Title

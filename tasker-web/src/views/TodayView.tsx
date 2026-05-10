@@ -248,6 +248,7 @@ export function TodayView({
             {urgent.slice(0, 3).map((task) => (
               <TaskCard
                 key={task.id}
+                readonly
                 sections={sections}
                 task={task}
                 onDelete={onDeleteTask}
@@ -265,6 +266,7 @@ export function TodayView({
             {overdue.slice(0, 4).map((task) => (
               <TaskCard
                 key={task.id}
+                readonly
                 sections={sections}
                 task={task}
                 onDelete={onDeleteTask}
