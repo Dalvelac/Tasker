@@ -381,8 +381,6 @@ export default function App() {
   return (
     <AppShell activeView={activeView} onNavigate={setActiveView}>
       <div className="hotkey-status">
-        <span className="pill">{shortcuts.showShortcuts} shortcuts</span>
-        <span className="pill">completed {showCompleted ? 'shown' : 'hidden'}</span>
         <button className="button button--ghost" disabled={undoStack.length === 0} onClick={undoLastAction} type="button">
           {shortcuts.undo} undo{lastUndoLabel ? ` · ${lastUndoLabel}` : ''}
         </button>
