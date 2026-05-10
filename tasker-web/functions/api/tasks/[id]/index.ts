@@ -24,6 +24,18 @@ type TaskInput = {
   is_all_day?: boolean | number;
 };
 
+function calculateDuration(startTime: string | null, endTime: string | null, duration: number | null) {
+  if (!startTime || !endTime) {
+    return duration;
+  }
+
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  const minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+  return minutes > 0 ? minutes : undefined;
+}
+
 export async function onRequestPatch(context: AppContext) {
   const id = getNumericParam(context.params, 'id');
 
@@ -34,6 +46,9 @@ export async function onRequestPatch(context: AppContext) {
   const body = await readJson<TaskInput>(context.request);
   const updates: string[] = [];
   const values: D1Value[] = [];
+  let nextStartTime: string | null | undefined;
+  let nextEndTime: string | null | undefined;
+  let nextDuration: number | null | undefined;
 
   if (body.title !== undefined) {
     const title = optionalString(body.title);
@@ -66,6 +81,7 @@ export async function onRequestPatch(context: AppContext) {
     if (startTime === undefined) return error('Invalid start time');
     updates.push('start_time = ?');
     values.push(startTime);
+    nextStartTime = startTime;
   }
 
   if (body.end_time !== undefined) {
@@ -73,13 +89,30 @@ export async function onRequestPatch(context: AppContext) {
     if (endTime === undefined) return error('Invalid end time');
     updates.push('end_time = ?');
     values.push(endTime);
+    nextEndTime = endTime;
   }
 
   if (body.duration_minutes !== undefined) {
     const duration = optionalInteger(body.duration_minutes);
     if (duration === undefined) return error('Invalid duration');
+    nextDuration = duration;
+  }
+
+  if (nextStartTime !== undefined || nextEndTime !== undefined || nextDuration !== undefined) {
+    const existing = await context.env.DB.prepare(
+      'SELECT start_time, end_time, duration_minutes FROM tasks WHERE id = ?',
+    )
+      .bind(id)
+      .first<{ start_time: string | null; end_time: string | null; duration_minutes: number | null }>();
+    const startTime = nextStartTime !== undefined ? nextStartTime : existing?.start_time ?? null;
+    const endTime = nextEndTime !== undefined ? nextEndTime : existing?.end_time ?? null;
+    const duration = nextDuration !== undefined ? nextDuration : existing?.duration_minutes ?? null;
+    const finalDuration = calculateDuration(startTime, endTime, duration);
+
+    if (finalDuration === undefined) return error('End time must be after start time');
+
     updates.push('duration_minutes = ?');
-    values.push(duration);
+    values.push(finalDuration);
   }
 
   if (body.priority !== undefined) {

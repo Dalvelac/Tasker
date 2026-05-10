@@ -35,6 +35,18 @@ const taskSelect = `
   LEFT JOIN sections ON sections.id = tasks.section_id
 `;
 
+function calculateDuration(startTime: string | null, endTime: string | null, duration: number | null) {
+  if (!startTime || !endTime) {
+    return duration;
+  }
+
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  const minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+  return minutes > 0 ? minutes : undefined;
+}
+
 export async function onRequestGet(context: AppContext) {
   const url = new URL(context.request.url);
   const filters: string[] = [];
@@ -138,6 +150,8 @@ export async function onRequestPost(context: AppContext) {
   if (startTime === undefined) return error('Invalid start time');
   if (endTime === undefined) return error('Invalid end time');
   if (durationMinutes === undefined) return error('Invalid duration');
+  const finalDuration = calculateDuration(startTime, endTime, durationMinutes);
+  if (finalDuration === undefined) return error('End time must be after start time');
   if (!isPriority(priority)) return error('Invalid priority');
   if (!isStatus(status)) return error('Invalid status');
   if (!isTaskType(type)) return error('Invalid task type');
@@ -157,7 +171,7 @@ export async function onRequestPost(context: AppContext) {
       date,
       startTime,
       endTime,
-      durationMinutes,
+      finalDuration,
       priority,
       status,
       type,

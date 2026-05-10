@@ -127,6 +127,13 @@
   gap: 18px;
 }
 
+.calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+  align-items: start;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
@@ -155,6 +162,7 @@
   }
 
   .dashboard-grid,
+  .calendar-layout,
   .content-grid {
     grid-template-columns: 1fr;
   }

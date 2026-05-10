@@ -4,12 +4,15 @@ import { createSection, deleteSection, listSections } from '../features/sections
 import type { Section, SectionInput } from '../features/sections/types'
 import { createTask, deleteTask, listTasks, toggleTask, updateTask } from '../features/tasks/api'
 import type { Task, TaskInput } from '../features/tasks/types'
+import { CalendarView } from '../views/CalendarView'
 import { DashboardView } from '../views/DashboardView'
 import { InboxView } from '../views/InboxView'
+import { OverdueView } from '../views/OverdueView'
 import { SectionsView } from '../views/SectionsView'
 import { StackedPlannerView } from '../views/StackedPlannerView'
 import { TodayView } from '../views/TodayView'
 import { UnscheduledView } from '../views/UnscheduledView'
+import { UpcomingView } from '../views/UpcomingView'
 import type { ViewId } from './navigation'
 
 export default function App() {
@@ -67,6 +70,31 @@ export default function App() {
     if (activeView === 'planner') {
       return (
         <StackedPlannerView
+          sections={sections}
+          tasks={tasks}
+          onDeleteTask={commonTaskProps.onDeleteTask}
+          onToggleTask={commonTaskProps.onToggleTask}
+          onUpdateTask={commonTaskProps.onUpdateTask}
+        />
+      )
+    }
+    if (activeView === 'calendar') {
+      return <CalendarView sections={sections} tasks={tasks} onCreateTask={commonTaskProps.onCreateTask} />
+    }
+    if (activeView === 'upcoming') {
+      return (
+        <UpcomingView
+          sections={sections}
+          tasks={tasks}
+          onDeleteTask={commonTaskProps.onDeleteTask}
+          onToggleTask={commonTaskProps.onToggleTask}
+          onUpdateTask={commonTaskProps.onUpdateTask}
+        />
+      )
+    }
+    if (activeView === 'overdue') {
+      return (
+        <OverdueView
           sections={sections}
           tasks={tasks}
           onDeleteTask={commonTaskProps.onDeleteTask}
