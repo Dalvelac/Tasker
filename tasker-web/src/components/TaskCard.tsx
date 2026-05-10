@@ -108,7 +108,11 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
   }
 
   return (
-    <article className={`task-card ${isDone ? 'is-done' : ''} ${isTimeBlock ? 'is-time-block' : ''}`}>
+    <article
+      className={`task-card ${isDone ? 'is-done' : ''} ${isTimeBlock ? 'is-time-block' : ''}`}
+      onMouseEnter={() => window.dispatchEvent(new CustomEvent('tasker:hover-task', { detail: task.id }))}
+      onMouseLeave={() => window.dispatchEvent(new CustomEvent('tasker:hover-task', { detail: null }))}
+    >
       <span className="task-card__accent" style={{ background: accent }} />
       <div className="task-card__main">
         <div className="task-card__top">

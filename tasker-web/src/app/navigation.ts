@@ -9,6 +9,7 @@ export type ViewId =
   | 'inbox'
   | 'unscheduled'
   | 'sections'
+  | 'shortcuts'
 
 export type NavigationItem = {
   id: ViewId
@@ -27,28 +28,35 @@ export const navigationGroups: NavigationGroup[] = [
     id: 'daily',
     label: 'Daily',
     items: [
-      { id: 'dashboard', label: 'Dashboard', icon: 'DB' },
-      { id: 'today', label: 'Today', icon: 'TD' },
-      { id: 'plan', label: 'Plan My Day', icon: 'PM' },
+      { id: 'dashboard', label: 'Dashboard', icon: '⌂' },
+      { id: 'today', label: 'Today', icon: '◉' },
+      { id: 'plan', label: 'Plan My Day', icon: '✦' },
     ],
   },
   {
     id: 'planning',
     label: 'Planning',
     items: [
-      { id: 'planner', label: 'Stacked Planner', icon: 'SP' },
-      { id: 'calendar', label: 'Calendar', icon: 'CA' },
-      { id: 'upcoming', label: 'Next 7 Days', icon: 'N7' },
-      { id: 'overdue', label: 'Overdue', icon: 'OD' },
+      { id: 'planner', label: 'Stacked Planner', icon: '▤' },
+      { id: 'calendar', label: 'Calendar', icon: '□' },
+      { id: 'upcoming', label: 'Next 7 Days', icon: '↗' },
+      { id: 'overdue', label: 'Overdue', icon: '!' },
     ],
   },
   {
     id: 'organize',
     label: 'Organize',
     items: [
-      { id: 'inbox', label: 'Inbox', icon: 'IN' },
-      { id: 'unscheduled', label: 'Unscheduled', icon: 'UN' },
-      { id: 'sections', label: 'Sections', icon: 'SC' },
+      { id: 'inbox', label: 'Inbox', icon: '↓' },
+      { id: 'unscheduled', label: 'Unscheduled', icon: '◇' },
+      { id: 'sections', label: 'Sections', icon: '⬡' },
     ],
   },
+  {
+    id: 'system',
+    label: 'System',
+    items: [{ id: 'shortcuts', label: 'Shortcuts', icon: '⌘' }],
+  },
 ]
+
+export const navigationItems = navigationGroups.flatMap((group) => group.items)
