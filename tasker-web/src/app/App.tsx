@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { AppShell } from '../components/AppShell'
 import { createSection, deleteSection, listSections } from '../features/sections/api'
 import type { Section, SectionInput } from '../features/sections/types'
+import { getStatsOverview } from '../features/stats/api'
+import type { StatsOverview } from '../features/stats/types'
 import { createTask, deleteTask, listTasks, toggleTask, updateTask } from '../features/tasks/api'
 import type { Task, TaskInput } from '../features/tasks/types'
 import { CalendarView } from '../views/CalendarView'
@@ -20,13 +22,19 @@ export default function App() {
   const [activeView, setActiveView] = useState<ViewId>('dashboard')
   const [sections, setSections] = useState<Section[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
+  const [stats, setStats] = useState<StatsOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   async function refresh() {
-    const [nextSections, nextTasks] = await Promise.all([listSections(), listTasks({ includeDone: true })])
+    const [nextSections, nextTasks, nextStats] = await Promise.all([
+      listSections(),
+      listTasks({ includeDone: true }),
+      getStatsOverview(),
+    ])
     setSections(nextSections)
     setTasks(nextTasks)
+    setStats(nextStats)
   }
 
   async function runAction(action: () => Promise<void>) {
@@ -137,7 +145,7 @@ export default function App() {
       )
     }
 
-    return <DashboardView {...commonTaskProps} />
+    return <DashboardView {...commonTaskProps} stats={stats} />
   }
 
   return (
