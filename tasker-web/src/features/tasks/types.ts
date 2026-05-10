@@ -2,6 +2,7 @@ export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled' | 'pos
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type TaskType = 'task' | 'event' | 'time_block'
 export type DayPeriod = 'morning' | 'afternoon' | 'night'
+export type RecurrenceType = 'daily' | 'weekly' | 'monthly'
 
 export type Task = {
   id: number
@@ -18,6 +19,12 @@ export type Task = {
   type: TaskType
   is_all_day: number
   day_period: DayPeriod | null
+  recurrence_rule: string | null
+  recurrence_type: RecurrenceType | null
+  recurrence_interval: number | null
+  recurrence_days: string | null
+  recurrence_until: string | null
+  parent_task_id: number | null
   completed_at: string | null
   created_at: string
   updated_at: string
@@ -40,6 +47,9 @@ export type TaskInput = {
   type?: TaskType
   is_all_day?: boolean | number
   day_period?: DayPeriod | null
+  recurrence_type?: RecurrenceType | null
+  recurrence_interval?: number | null
+  recurrence_until?: string | null
 }
 
 export type TaskFilters = {

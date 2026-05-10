@@ -7,6 +7,7 @@ import {
   optionalDayPeriod,
   optionalDate,
   optionalInteger,
+  optionalRecurrenceType,
   optionalString,
   optionalTime,
 } from '../../../_shared/validation';
@@ -24,7 +25,114 @@ type TaskInput = {
   type?: string;
   is_all_day?: boolean | number;
   day_period?: string | null;
+  recurrence_type?: string | null;
+  recurrence_interval?: number | null;
+  recurrence_until?: string | null;
 };
+
+type RecurringTask = {
+  id: number;
+  title: string;
+  notes: string | null;
+  section_id: number | null;
+  date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  duration_minutes: number | null;
+  priority: string;
+  status: string;
+  type: string;
+  is_all_day: number;
+  day_period: string | null;
+  recurrence_rule: string | null;
+  recurrence_type: string | null;
+  recurrence_interval: number | null;
+  recurrence_days: string | null;
+  recurrence_until: string | null;
+  parent_task_id: number | null;
+};
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getNextDate(dateKey: string, recurrenceType: string, interval: number) {
+  const date = new Date(`${dateKey}T00:00:00`);
+
+  if (recurrenceType === 'daily') {
+    date.setDate(date.getDate() + interval);
+  } else if (recurrenceType === 'weekly') {
+    date.setDate(date.getDate() + interval * 7);
+  } else if (recurrenceType === 'monthly') {
+    const originalDay = date.getDate();
+    date.setDate(1);
+    date.setMonth(date.getMonth() + interval);
+    const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    date.setDate(Math.min(originalDay, lastDayOfMonth));
+  } else {
+    return null;
+  }
+
+  return toDateKey(date);
+}
+
+async function createNextRecurringInstance(context: AppContext, task: RecurringTask) {
+  if (!task.date || !task.recurrence_type) {
+    return;
+  }
+
+  const interval = task.recurrence_interval && task.recurrence_interval > 0 ? task.recurrence_interval : 1;
+  const nextDate = getNextDate(task.date, task.recurrence_type, interval);
+  const parentTaskId = task.parent_task_id ?? task.id;
+
+  if (!nextDate || (task.recurrence_until && nextDate > task.recurrence_until)) {
+    return;
+  }
+
+  const existing = await context.env.DB.prepare(
+    'SELECT id FROM tasks WHERE parent_task_id = ? AND date = ? LIMIT 1',
+  )
+    .bind(parentTaskId, nextDate)
+    .first<{ id: number }>();
+
+  if (existing) {
+    return;
+  }
+
+  await context.env.DB.prepare(
+    `INSERT INTO tasks (
+       title, notes, section_id, date, due_date, start_time, end_time,
+       duration_minutes, priority, status, type, is_all_day, day_period,
+       recurrence_rule, recurrence_type, recurrence_interval, recurrence_days,
+       recurrence_until, parent_task_id
+     )
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      task.title,
+      task.notes,
+      task.section_id,
+      nextDate,
+      nextDate,
+      task.start_time,
+      task.end_time,
+      task.duration_minutes,
+      task.priority,
+      task.type,
+      task.is_all_day,
+      task.day_period,
+      task.recurrence_rule,
+      task.recurrence_type,
+      interval,
+      task.recurrence_days,
+      task.recurrence_until,
+      parentTaskId,
+    )
+    .run();
+}
 
 function calculateDuration(startTime: string | null, endTime: string | null, duration: number | null) {
   if (!startTime || !endTime) {
@@ -75,6 +183,7 @@ export async function onRequestPatch(context: AppContext) {
   let nextDuration: number | null | undefined;
   let nextType: string | undefined;
   let dayPeriodWasExplicit = false;
+  let completedExistingTask: RecurringTask | null = null;
 
   if (body.title !== undefined) {
     const title = optionalString(body.title);
@@ -149,6 +258,11 @@ export async function onRequestPatch(context: AppContext) {
 
   if (body.status !== undefined) {
     if (!isStatus(body.status)) return error('Invalid status');
+    if (body.status === 'done') {
+      completedExistingTask = await context.env.DB.prepare('SELECT * FROM tasks WHERE id = ?')
+        .bind(id)
+        .first<RecurringTask>();
+    }
     updates.push('status = ?', "completed_at = CASE WHEN ? = 'done' THEN COALESCE(completed_at, CURRENT_TIMESTAMP) ELSE NULL END");
     values.push(body.status, body.status);
   }
@@ -178,6 +292,35 @@ export async function onRequestPatch(context: AppContext) {
     values.push(inferDayPeriodFromTime(nextStartTime ?? null));
   }
 
+  if (body.recurrence_type !== undefined) {
+    const recurrenceType = optionalRecurrenceType(body.recurrence_type);
+    if (recurrenceType === undefined) return error('Invalid recurrence');
+    updates.push('recurrence_type = ?');
+    values.push(recurrenceType);
+
+    if (body.recurrence_interval === undefined) {
+      updates.push(recurrenceType === null ? 'recurrence_interval = NULL' : 'recurrence_interval = COALESCE(recurrence_interval, 1)');
+    }
+
+    if (recurrenceType === null && body.recurrence_until === undefined) updates.push('recurrence_until = NULL');
+  }
+
+  if (body.recurrence_interval !== undefined) {
+    const recurrenceInterval = optionalInteger(body.recurrence_interval);
+    if (recurrenceInterval === undefined || (recurrenceInterval !== null && recurrenceInterval < 1)) {
+      return error('Invalid recurrence interval');
+    }
+    updates.push('recurrence_interval = ?');
+    values.push(recurrenceInterval);
+  }
+
+  if (body.recurrence_until !== undefined) {
+    const recurrenceUntil = optionalDate(body.recurrence_until);
+    if (recurrenceUntil === undefined) return error('Invalid recurrence until');
+    updates.push('recurrence_until = ?');
+    values.push(recurrenceUntil);
+  }
+
   if (updates.length === 0) {
     return error('No task fields to update');
   }
@@ -201,6 +344,10 @@ export async function onRequestPatch(context: AppContext) {
   await context.env.DB.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`)
     .bind(...values)
     .run();
+
+  if (completedExistingTask && completedExistingTask.status !== 'done') {
+    await createNextRecurringInstance(context, completedExistingTask);
+  }
 
   return json({ ok: true });
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Section } from '../features/sections/types'
-import type { Task, TaskInput, TaskPriority, TaskStatus, TaskType } from '../features/tasks/types'
+import type { RecurrenceType, Task, TaskInput, TaskPriority, TaskStatus, TaskType } from '../features/tasks/types'
 import { addMinutesToTime, formatDuration, getTaskDurationMinutes, inferDayPeriodFromTime } from '../features/tasks/utils'
 import { formatDateKey, isBeforeToday, todayKey } from '../lib/dates'
 import { SectionPicker } from './SectionPicker'
@@ -17,6 +17,7 @@ const priorities: TaskPriority[] = ['low', 'normal', 'high', 'urgent']
 const statuses: TaskStatus[] = ['pending', 'in_progress', 'done', 'cancelled', 'postponed']
 const taskTypes: TaskType[] = ['task', 'event', 'time_block']
 const durationPresets = [30, 60, 90]
+const recurrenceTypes: Array<RecurrenceType | 'none'> = ['none', 'daily', 'weekly', 'monthly']
 
 export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskCardProps) {
   const [sectionId, setSectionId] = useState<number | null>(task.section_id)
@@ -29,6 +30,9 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
   const [priority, setPriority] = useState<TaskPriority>(task.priority)
   const [status, setStatus] = useState<TaskStatus>(task.status)
   const [type, setType] = useState<TaskType>(task.type)
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | 'none'>(task.recurrence_type ?? 'none')
+  const [recurrenceInterval, setRecurrenceInterval] = useState(task.recurrence_interval?.toString() ?? '1')
+  const [recurrenceUntil, setRecurrenceUntil] = useState(task.recurrence_until ?? '')
   const [isEditing, setIsEditing] = useState(false)
   const accent = task.section_color ?? '#9CA3AF'
   const isDone = task.status === 'done'
@@ -64,6 +68,9 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
       priority,
       status,
       type,
+      recurrence_type: recurrenceType === 'none' ? null : recurrenceType,
+      recurrence_interval: recurrenceType === 'none' ? null : Number(recurrenceInterval) || 1,
+      recurrence_until: recurrenceType === 'none' ? null : recurrenceUntil || null,
     })
     setIsEditing(false)
   }
@@ -135,6 +142,12 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
         <div className="task-meta">
           <span className="pill">{task.section_name ?? 'Inbox'}</span>
           <span className={`pill ${task.priority === 'urgent' ? 'pill--urgent' : ''}`}>{task.priority}</span>
+          {task.recurrence_type && (
+            <span className="pill pill--recurring">
+              recurring {task.recurrence_interval && task.recurrence_interval > 1 ? `${task.recurrence_interval}x ` : ''}
+              {task.recurrence_type}
+            </span>
+          )}
           <span className={`pill ${isTimeBlock ? 'pill--block' : ''}`}>{isTimeBlock ? 'block' : task.type}</span>
           <span className="pill">{task.start_time ?? 'sin hora'}</span>
           {task.end_time && <span className="pill">to {task.end_time}</span>}
@@ -214,6 +227,41 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="form-label">
+              Repeats
+              <select
+                className="select"
+                onChange={(event) => setRecurrenceType(event.target.value as RecurrenceType | 'none')}
+                value={recurrenceType}
+              >
+                {recurrenceTypes.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-label">
+              Every
+              <input
+                className="field"
+                disabled={recurrenceType === 'none'}
+                min="1"
+                onChange={(event) => setRecurrenceInterval(event.target.value)}
+                type="number"
+                value={recurrenceInterval}
+              />
+            </label>
+            <label className="form-label">
+              Until
+              <input
+                className="field"
+                disabled={recurrenceType === 'none'}
+                onChange={(event) => setRecurrenceUntil(event.target.value)}
+                type="date"
+                value={recurrenceUntil}
+              />
             </label>
             {type === 'time_block' && (
               <div className="form-label">

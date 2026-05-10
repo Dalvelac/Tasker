@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import type { Section } from '../features/sections/types'
-import type { TaskInput, TaskPriority } from '../features/tasks/types'
+import type { RecurrenceType, TaskInput, TaskPriority } from '../features/tasks/types'
 import { SectionPicker } from './SectionPicker'
 
 type TaskFormProps = {
@@ -12,6 +12,7 @@ type TaskFormProps = {
 }
 
 const priorities: TaskPriority[] = ['low', 'normal', 'high', 'urgent']
+const recurrenceTypes: Array<RecurrenceType | 'none'> = ['none', 'daily', 'weekly', 'monthly']
 
 export function TaskForm({
   sections,
@@ -26,6 +27,9 @@ export function TaskForm({
   const [date, setDate] = useState(defaults.date ?? '')
   const [startTime, setStartTime] = useState(defaults.start_time ?? '')
   const [priority, setPriority] = useState<TaskPriority>(defaults.priority ?? 'normal')
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | 'none'>(defaults.recurrence_type ?? 'none')
+  const [recurrenceInterval, setRecurrenceInterval] = useState(defaults.recurrence_interval?.toString() ?? '1')
+  const [recurrenceUntil, setRecurrenceUntil] = useState(defaults.recurrence_until ?? '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -45,6 +49,9 @@ export function TaskForm({
       priority,
       status: 'pending',
       type: 'task',
+      recurrence_type: recurrenceType === 'none' ? null : recurrenceType,
+      recurrence_interval: recurrenceType === 'none' ? null : Number(recurrenceInterval) || 1,
+      recurrence_until: recurrenceType === 'none' ? null : recurrenceUntil || null,
     })
     setIsSubmitting(false)
     setTitle('')
@@ -111,6 +118,46 @@ export function TaskForm({
           />
         </label>
       </div>
+
+      {!compact && (
+        <div className="form-grid form-grid--columns">
+          <label className="form-label">
+            Repeats
+            <select
+              className="select"
+              onChange={(event) => setRecurrenceType(event.target.value as RecurrenceType | 'none')}
+              value={recurrenceType}
+            >
+              {recurrenceTypes.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="form-label">
+            Every
+            <input
+              className="field"
+              disabled={recurrenceType === 'none'}
+              min="1"
+              onChange={(event) => setRecurrenceInterval(event.target.value)}
+              type="number"
+              value={recurrenceInterval}
+            />
+          </label>
+          <label className="form-label">
+            Until
+            <input
+              className="field"
+              disabled={recurrenceType === 'none'}
+              onChange={(event) => setRecurrenceUntil(event.target.value)}
+              type="date"
+              value={recurrenceUntil}
+            />
+          </label>
+        </div>
+      )}
 
       <button className="button button--primary" disabled={isSubmitting} type="submit">
         {isSubmitting ? 'Saving...' : submitLabel}

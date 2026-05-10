@@ -2,6 +2,7 @@ const priorities = ['low', 'normal', 'high', 'urgent'];
 const statuses = ['pending', 'in_progress', 'done', 'cancelled', 'postponed'];
 const taskTypes = ['task', 'event', 'time_block'];
 const dayPeriods = ['morning', 'afternoon', 'night'];
+const recurrenceTypes = ['daily', 'weekly', 'monthly'];
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -27,6 +28,14 @@ export function isStatus(value: unknown): value is string {
 
 export function isTaskType(value: unknown): value is string {
   return typeof value === 'string' && taskTypes.includes(value);
+}
+
+export function optionalRecurrenceType(value: unknown) {
+  if (value === undefined || value === null || value === '' || value === 'none') {
+    return null;
+  }
+
+  return typeof value === 'string' && recurrenceTypes.includes(value) ? value : undefined;
 }
 
 export function optionalDayPeriod(value: unknown) {

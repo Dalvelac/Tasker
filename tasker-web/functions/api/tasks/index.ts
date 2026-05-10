@@ -7,6 +7,7 @@ import {
   optionalDayPeriod,
   optionalDate,
   optionalInteger,
+  optionalRecurrenceType,
   optionalString,
   optionalTime,
 } from '../../_shared/validation';
@@ -24,6 +25,9 @@ type TaskInput = {
   type?: string;
   is_all_day?: boolean | number;
   day_period?: string | null;
+  recurrence_type?: string | null;
+  recurrence_interval?: number | null;
+  recurrence_until?: string | null;
 };
 
 const taskSelect = `
@@ -170,6 +174,9 @@ export async function onRequestPost(context: AppContext) {
   const type = body.type ?? 'task';
   const isAllDay = body.is_all_day ? 1 : 0;
   const dayPeriod = body.day_period === undefined ? inferDayPeriodFromTime(startTime) : optionalDayPeriod(body.day_period);
+  const recurrenceType = optionalRecurrenceType(body.recurrence_type);
+  const recurrenceInterval = body.recurrence_interval === undefined ? 1 : optionalInteger(body.recurrence_interval);
+  const recurrenceUntil = optionalDate(body.recurrence_until);
 
   if (date === undefined) return error('Invalid date');
   if (startTime === undefined) return error('Invalid start time');
@@ -181,14 +188,20 @@ export async function onRequestPost(context: AppContext) {
   if (!isStatus(status)) return error('Invalid status');
   if (!isTaskType(type)) return error('Invalid task type');
   if (dayPeriod === undefined) return error('Invalid day period');
+  if (recurrenceType === undefined) return error('Invalid recurrence');
+  if (recurrenceInterval === undefined || (recurrenceType && (!recurrenceInterval || recurrenceInterval < 1))) {
+    return error('Invalid recurrence interval');
+  }
+  if (recurrenceUntil === undefined) return error('Invalid recurrence until');
   if (!validateTimeBlock(type, startTime, endTime)) return error('Time blocks require start and end time');
 
   const result = await context.env.DB.prepare(
     `INSERT INTO tasks (
        title, notes, section_id, date, due_date, start_time, end_time,
-       duration_minutes, priority, status, type, is_all_day, day_period, completed_at
+       duration_minutes, priority, status, type, is_all_day, day_period,
+       recurrence_type, recurrence_interval, recurrence_until, completed_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
   )
     .bind(
       title,
@@ -204,6 +217,9 @@ export async function onRequestPost(context: AppContext) {
       type,
       isAllDay,
       dayPeriod,
+      recurrenceType,
+      recurrenceType ? recurrenceInterval : null,
+      recurrenceType ? recurrenceUntil : null,
       status,
     )
     .run();
