@@ -110,8 +110,9 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
                   <span className="calendar-day__count">{dayTasks.length}</span>
                   <span className="calendar-day__tasks">
                     {dayTasks.slice(0, 3).map((task) => (
-                      <span className="calendar-task" key={task.id}>
+                      <span className={`calendar-task ${task.type === 'time_block' ? 'is-time-block' : ''}`} key={task.id}>
                         <span style={{ background: task.section_color ?? '#9CA3AF' }} />
+                        {task.type === 'time_block' ? 'block ' : ''}
                         {task.start_time ? `${task.start_time} ` : ''}
                         {task.title}
                       </span>
@@ -146,10 +147,14 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
               <EmptyState title="No tasks" detail="This day has no visible tasks for the current filters." />
             ) : (
               selectedTasks.map((task) => (
-                <div className="mini-task" key={task.id}>
+                <div className={`mini-task ${task.type === 'time_block' ? 'is-time-block' : ''}`} key={task.id}>
                   <span style={{ background: task.section_color ?? '#9CA3AF' }} />
                   <strong>{task.title}</strong>
-                  <em>{task.start_time ?? 'sin hora'}</em>
+                  <em>
+                    {task.type === 'time_block' ? 'block ' : ''}
+                    {task.start_time ?? 'sin hora'}
+                    {task.end_time ? `-${task.end_time}` : ''}
+                  </em>
                 </div>
               ))
             )}

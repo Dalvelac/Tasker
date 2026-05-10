@@ -3,7 +3,15 @@ import { TaskCard } from '../components/TaskCard'
 import { TaskForm } from '../components/TaskForm'
 import type { Section } from '../features/sections/types'
 import type { Task, TaskInput } from '../features/tasks/types'
-import { dayPeriods, getTasksByPeriod, periodLabels, sortTasks } from '../features/tasks/utils'
+import {
+  dayPeriods,
+  formatDuration,
+  getTaskDurationMinutes,
+  getTasksByPeriod,
+  getTimelineTasks,
+  periodLabels,
+  sortTasks,
+} from '../features/tasks/utils'
 import { formatDateKey, isBeforeToday, todayKey } from '../lib/dates'
 
 type TodayViewProps = {
@@ -48,6 +56,7 @@ export function TodayView({
   const completed = todayTasks.filter((task) => task.status === 'done').length
   const nextTask = todayTasks.find((task) => task.status !== 'done' && task.start_time)
   const currentBlock = getCurrentBlock(todayTasks)
+  const timelineTasks = getTimelineTasks(todayTasks)
   const periodTasks = getTasksByPeriod(tasks, today)
   const unplannedToday = sortTasks(
     todayTasks.filter((task) => task.day_period === null && task.status !== 'done'),
@@ -141,6 +150,38 @@ export function TodayView({
 
       <div className="content-grid">
         <div className="plan-blocks">
+          <div className="card card--pad">
+            <div className="day-group__title">
+              <span>Timeline</span>
+              <span>{timelineTasks.length}</span>
+            </div>
+            <div className="timeline-list">
+              {timelineTasks.length === 0 ? (
+                <EmptyState title="No timed work" detail="Add start/end times or make a task a block." />
+              ) : (
+                timelineTasks.map((task) => {
+                  const duration = formatDuration(getTaskDurationMinutes(task))
+
+                  return (
+                    <div className={`timeline-item ${task.type === 'time_block' ? 'is-time-block' : ''}`} key={task.id}>
+                      <div className="timeline-item__time">
+                        <strong>{task.start_time}</strong>
+                        <span>{task.end_time ?? duration ?? ''}</span>
+                      </div>
+                      <div className="timeline-item__body">
+                        <span className="timeline-item__accent" style={{ background: task.section_color ?? '#9CA3AF' }} />
+                        <div>
+                          <strong>{task.title}</strong>
+                          <span>{task.type === 'time_block' ? 'block' : task.section_name ?? 'Inbox'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
           {dayPeriods.map((period) => (
             <div className="card card--pad plan-block" key={period}>
               <div className="day-group__title">

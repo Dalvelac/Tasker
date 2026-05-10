@@ -92,6 +92,13 @@
   background: var(--card-hover);
 }
 
+.task-card.is-time-block {
+  border-color: rgba(56, 189, 248, 0.55);
+  background:
+    linear-gradient(90deg, rgba(56, 189, 248, 0.12), transparent 34%),
+    var(--card);
+}
+
 .task-card.is-done {
   opacity: 0.68;
 }
@@ -154,6 +161,11 @@
 .pill--urgent {
   border-color: rgba(244, 63, 94, 0.5);
   color: var(--urgent);
+}
+
+.pill--block {
+  border-color: rgba(56, 189, 248, 0.56);
+  color: var(--accent);
 }
 
 .task-actions,
@@ -300,6 +312,68 @@
   font-size: 13px;
 }
 
+.timeline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(17, 24, 39, 0.62);
+  padding: 10px;
+}
+
+.timeline-item.is-time-block {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.timeline-item__time,
+.timeline-item__body div {
+  display: grid;
+  gap: 2px;
+}
+
+.timeline-item__time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.timeline-item__time strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.timeline-item__body {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.timeline-item__body strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-item__body span:not(.timeline-item__accent) {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.timeline-item__accent {
+  width: 7px;
+  height: 34px;
+  border-radius: 999px;
+}
+
 .calendar-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) 180px 180px;
@@ -426,6 +500,14 @@
   text-overflow: ellipsis;
 }
 
+.calendar-task.is-time-block {
+  border: 1px solid rgba(56, 189, 248, 0.42);
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 2px 4px;
+  color: var(--accent);
+}
+
 .calendar-more {
   color: var(--text-muted);
   font-family: var(--font-mono);
@@ -437,6 +519,11 @@
   border-radius: 8px;
   background: rgba(17, 24, 39, 0.62);
   padding: 8px;
+}
+
+.mini-task.is-time-block {
+  border-color: rgba(56, 189, 248, 0.48);
+  background: rgba(56, 189, 248, 0.1);
 }
 
 .mini-task strong {
@@ -472,6 +559,10 @@
 
   .task-card__top {
     flex-direction: column;
+  }
+
+  .timeline-item {
+    grid-template-columns: 1fr;
   }
 
   .calendar-weekdays {

@@ -49,6 +49,28 @@ function calculateDuration(startTime: string | null, endTime: string | null, dur
   return minutes > 0 ? minutes : undefined;
 }
 
+function inferDayPeriodFromTime(startTime: string | null) {
+  if (!startTime) {
+    return null;
+  }
+
+  const [hour] = startTime.split(':').map(Number);
+
+  if (hour >= 6 && hour < 12) {
+    return 'morning';
+  }
+
+  if (hour >= 12 && hour < 21) {
+    return 'afternoon';
+  }
+
+  return 'night';
+}
+
+function validateTimeBlock(type: string, startTime: string | null, endTime: string | null) {
+  return type !== 'time_block' || Boolean(startTime && endTime);
+}
+
 export async function onRequestGet(context: AppContext) {
   const url = new URL(context.request.url);
   const filters: string[] = [];
@@ -147,7 +169,7 @@ export async function onRequestPost(context: AppContext) {
   const status = body.status ?? 'pending';
   const type = body.type ?? 'task';
   const isAllDay = body.is_all_day ? 1 : 0;
-  const dayPeriod = optionalDayPeriod(body.day_period);
+  const dayPeriod = body.day_period === undefined ? inferDayPeriodFromTime(startTime) : optionalDayPeriod(body.day_period);
 
   if (date === undefined) return error('Invalid date');
   if (startTime === undefined) return error('Invalid start time');
@@ -159,6 +181,7 @@ export async function onRequestPost(context: AppContext) {
   if (!isStatus(status)) return error('Invalid status');
   if (!isTaskType(type)) return error('Invalid task type');
   if (dayPeriod === undefined) return error('Invalid day period');
+  if (!validateTimeBlock(type, startTime, endTime)) return error('Time blocks require start and end time');
 
   const result = await context.env.DB.prepare(
     `INSERT INTO tasks (

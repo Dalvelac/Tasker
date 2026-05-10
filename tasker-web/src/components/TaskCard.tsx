@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Section } from '../features/sections/types'
 import type { Task, TaskInput, TaskPriority, TaskStatus, TaskType } from '../features/tasks/types'
+import { addMinutesToTime, formatDuration, getTaskDurationMinutes } from '../features/tasks/utils'
 import { formatDateKey, isBeforeToday } from '../lib/dates'
 import { SectionPicker } from './SectionPicker'
 
@@ -15,6 +16,7 @@ type TaskCardProps = {
 const priorities: TaskPriority[] = ['low', 'normal', 'high', 'urgent']
 const statuses: TaskStatus[] = ['pending', 'in_progress', 'done', 'cancelled', 'postponed']
 const taskTypes: TaskType[] = ['task', 'event', 'time_block']
+const durationPresets = [30, 60, 90]
 
 export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskCardProps) {
   const [sectionId, setSectionId] = useState<number | null>(task.section_id)
@@ -30,6 +32,8 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
   const [isEditing, setIsEditing] = useState(false)
   const accent = task.section_color ?? '#9CA3AF'
   const isDone = task.status === 'done'
+  const isTimeBlock = task.type === 'time_block'
+  const durationLabel = formatDuration(getTaskDurationMinutes(task))
 
   async function updateSection(value: number | null) {
     setSectionId(value)
@@ -64,8 +68,35 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
     setIsEditing(false)
   }
 
+  async function makeBlock() {
+    const nextStart = startTime || task.start_time || '09:00'
+    const nextEnd = endTime || task.end_time || addMinutesToTime(nextStart, 60)
+
+    setStartTime(nextStart)
+    setEndTime(nextEnd)
+    setType('time_block')
+    await onUpdate(task.id, {
+      type: 'time_block',
+      start_time: nextStart,
+      end_time: nextEnd,
+    })
+  }
+
+  async function removeBlock() {
+    setType('task')
+    await onUpdate(task.id, { type: 'task' })
+  }
+
+  function applyDurationPreset(minutes: number) {
+    const nextStart = startTime || task.start_time || '09:00'
+
+    setStartTime(nextStart)
+    setEndTime(addMinutesToTime(nextStart, minutes))
+    setDurationMinutes(String(minutes))
+  }
+
   return (
-    <article className={`task-card ${isDone ? 'is-done' : ''}`}>
+    <article className={`task-card ${isDone ? 'is-done' : ''} ${isTimeBlock ? 'is-time-block' : ''}`}>
       <span className="task-card__accent" style={{ background: accent }} />
       <div className="task-card__main">
         <div className="task-card__top">
@@ -81,6 +112,15 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
             <button className="button" onClick={() => setIsEditing((value) => !value)} type="button">
               {isEditing ? 'Close' : 'Edit'}
             </button>
+            {isTimeBlock ? (
+              <button className="button" onClick={removeBlock} type="button">
+                Remove block
+              </button>
+            ) : (
+              <button className="button" onClick={makeBlock} type="button">
+                Make block
+              </button>
+            )}
             <button className="button button--danger" onClick={() => onDelete(task.id)} type="button">
               Delete
             </button>
@@ -90,9 +130,10 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
         <div className="task-meta">
           <span className="pill">{task.section_name ?? 'Inbox'}</span>
           <span className={`pill ${task.priority === 'urgent' ? 'pill--urgent' : ''}`}>{task.priority}</span>
-          <span className="pill">{task.type}</span>
+          <span className={`pill ${isTimeBlock ? 'pill--block' : ''}`}>{isTimeBlock ? 'block' : task.type}</span>
           <span className="pill">{task.start_time ?? 'sin hora'}</span>
           {task.end_time && <span className="pill">to {task.end_time}</span>}
+          {durationLabel && <span className="pill">{durationLabel}</span>}
           {task.date && (
             <span className="pill">
               {isBeforeToday(task.date) ? `overdue ${formatDateKey(task.date)}` : formatDateKey(task.date)}
@@ -127,11 +168,11 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
               <textarea className="textarea" onChange={(event) => setNotes(event.target.value)} value={notes} />
             </label>
             <label className="form-label">
-              Start
+              Start {type === 'time_block' ? '*' : ''}
               <input className="field" onChange={(event) => setStartTime(event.target.value)} type="time" value={startTime} />
             </label>
             <label className="form-label">
-              End
+              End {type === 'time_block' ? '*' : ''}
               <input className="field" onChange={(event) => setEndTime(event.target.value)} type="time" value={endTime} />
             </label>
             <label className="form-label">
@@ -169,6 +210,18 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
                 ))}
               </select>
             </label>
+            {type === 'time_block' && (
+              <div className="form-label">
+                Presets
+                <div className="inline-actions">
+                  {durationPresets.map((minutes) => (
+                    <button className="button" key={minutes} onClick={() => applyDurationPreset(minutes)} type="button">
+                      {minutes}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button className="button button--primary" onClick={saveDetails} type="button">
               Save details
             </button>

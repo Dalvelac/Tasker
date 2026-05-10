@@ -38,6 +38,28 @@ function calculateDuration(startTime: string | null, endTime: string | null, dur
   return minutes > 0 ? minutes : undefined;
 }
 
+function inferDayPeriodFromTime(startTime: string | null) {
+  if (!startTime) {
+    return null;
+  }
+
+  const [hour] = startTime.split(':').map(Number);
+
+  if (hour >= 6 && hour < 12) {
+    return 'morning';
+  }
+
+  if (hour >= 12 && hour < 21) {
+    return 'afternoon';
+  }
+
+  return 'night';
+}
+
+function validateTimeBlock(type: string, startTime: string | null, endTime: string | null) {
+  return type !== 'time_block' || Boolean(startTime && endTime);
+}
+
 export async function onRequestPatch(context: AppContext) {
   const id = getNumericParam(context.params, 'id');
 
@@ -51,6 +73,8 @@ export async function onRequestPatch(context: AppContext) {
   let nextStartTime: string | null | undefined;
   let nextEndTime: string | null | undefined;
   let nextDuration: number | null | undefined;
+  let nextType: string | undefined;
+  let dayPeriodWasExplicit = false;
 
   if (body.title !== undefined) {
     const title = optionalString(body.title);
@@ -133,6 +157,7 @@ export async function onRequestPatch(context: AppContext) {
     if (!isTaskType(body.type)) return error('Invalid task type');
     updates.push('type = ?');
     values.push(body.type);
+    nextType = body.type;
   }
 
   if (body.is_all_day !== undefined) {
@@ -141,14 +166,33 @@ export async function onRequestPatch(context: AppContext) {
   }
 
   if (body.day_period !== undefined) {
+    dayPeriodWasExplicit = true;
     const dayPeriod = optionalDayPeriod(body.day_period);
     if (dayPeriod === undefined) return error('Invalid day period');
     updates.push('day_period = ?');
     values.push(dayPeriod);
   }
 
+  if (body.start_time !== undefined && !dayPeriodWasExplicit) {
+    updates.push('day_period = ?');
+    values.push(inferDayPeriodFromTime(nextStartTime ?? null));
+  }
+
   if (updates.length === 0) {
     return error('No task fields to update');
+  }
+
+  if (nextType === 'time_block' || nextStartTime !== undefined || nextEndTime !== undefined) {
+    const existing = await context.env.DB.prepare(
+      'SELECT type, start_time, end_time FROM tasks WHERE id = ?',
+    )
+      .bind(id)
+      .first<{ type: string; start_time: string | null; end_time: string | null }>();
+    const type = nextType ?? existing?.type ?? 'task';
+    const startTime = nextStartTime !== undefined ? nextStartTime : existing?.start_time ?? null;
+    const endTime = nextEndTime !== undefined ? nextEndTime : existing?.end_time ?? null;
+
+    if (!validateTimeBlock(type, startTime, endTime)) return error('Time blocks require start and end time');
   }
 
   updates.push('updated_at = CURRENT_TIMESTAMP');
