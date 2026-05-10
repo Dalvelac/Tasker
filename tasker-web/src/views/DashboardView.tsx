@@ -68,7 +68,7 @@ export function DashboardView({
       <div className="card card--pad">
         <div className="day-group__title">
           <span>Productivity heatmap</span>
-          <span>{stats?.range.days ?? 180} days</span>
+          <span>last 3 months</span>
         </div>
         {stats ? (
           <ProductivityHeatmap days={stats.heatmap} from={stats.range.from} to={stats.range.to} />

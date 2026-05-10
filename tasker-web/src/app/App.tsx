@@ -30,7 +30,7 @@ export default function App() {
     const [nextSections, nextTasks, nextStats] = await Promise.all([
       listSections(),
       listTasks({ includeDone: true }),
-      getStatsOverview(),
+      getStatsOverview(120),
     ])
     setSections(nextSections)
     setTasks(nextTasks)
