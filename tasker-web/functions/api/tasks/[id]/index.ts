@@ -4,6 +4,7 @@ import {
   isPriority,
   isStatus,
   isTaskType,
+  optionalDayPeriod,
   optionalDate,
   optionalInteger,
   optionalString,
@@ -22,6 +23,7 @@ type TaskInput = {
   status?: string;
   type?: string;
   is_all_day?: boolean | number;
+  day_period?: string | null;
 };
 
 function calculateDuration(startTime: string | null, endTime: string | null, duration: number | null) {
@@ -136,6 +138,13 @@ export async function onRequestPatch(context: AppContext) {
   if (body.is_all_day !== undefined) {
     updates.push('is_all_day = ?');
     values.push(body.is_all_day ? 1 : 0);
+  }
+
+  if (body.day_period !== undefined) {
+    const dayPeriod = optionalDayPeriod(body.day_period);
+    if (dayPeriod === undefined) return error('Invalid day period');
+    updates.push('day_period = ?');
+    values.push(dayPeriod);
   }
 
   if (updates.length === 0) {

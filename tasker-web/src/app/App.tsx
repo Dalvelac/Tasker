@@ -8,6 +8,7 @@ import { CalendarView } from '../views/CalendarView'
 import { DashboardView } from '../views/DashboardView'
 import { InboxView } from '../views/InboxView'
 import { OverdueView } from '../views/OverdueView'
+import { PlanMyDayView } from '../views/PlanMyDayView'
 import { SectionsView } from '../views/SectionsView'
 import { StackedPlannerView } from '../views/StackedPlannerView'
 import { TodayView } from '../views/TodayView'
@@ -66,7 +67,18 @@ export default function App() {
       )
     }
 
-    if (activeView === 'today') return <TodayView {...commonTaskProps} />
+    if (activeView === 'today') return <TodayView {...commonTaskProps} onOpenPlan={() => setActiveView('plan')} />
+    if (activeView === 'plan') {
+      return (
+        <PlanMyDayView
+          sections={sections}
+          tasks={tasks}
+          onDeleteTask={commonTaskProps.onDeleteTask}
+          onToggleTask={commonTaskProps.onToggleTask}
+          onUpdateTask={commonTaskProps.onUpdateTask}
+        />
+      )
+    }
     if (activeView === 'planner') {
       return (
         <StackedPlannerView

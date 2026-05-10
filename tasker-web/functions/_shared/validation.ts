@@ -1,6 +1,7 @@
 const priorities = ['low', 'normal', 'high', 'urgent'];
 const statuses = ['pending', 'in_progress', 'done', 'cancelled', 'postponed'];
 const taskTypes = ['task', 'event', 'time_block'];
+const dayPeriods = ['morning', 'afternoon', 'night'];
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -26,6 +27,14 @@ export function isStatus(value: unknown): value is string {
 
 export function isTaskType(value: unknown): value is string {
   return typeof value === 'string' && taskTypes.includes(value);
+}
+
+export function optionalDayPeriod(value: unknown) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  return typeof value === 'string' && dayPeriods.includes(value) ? value : undefined;
 }
 
 export function optionalDate(value: unknown) {

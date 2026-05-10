@@ -1,5 +1,5 @@
-import { addDays, formatShortDate, todayKey } from '../../lib/dates'
-import type { Task } from './types'
+import { addDays, formatDateKey, formatShortDate, isBeforeToday, todayKey } from '../../lib/dates'
+import type { DayPeriod, Task } from './types'
 
 const priorityWeight = {
   urgent: 0,
@@ -22,8 +22,8 @@ export function sortTasks(tasks: Task[]) {
 export function groupPlannerTasks(tasks: Task[]) {
   const today = todayKey()
   const labels = [
-    { key: today, title: `Hoy - ${formatShortDate(today)}` },
-    { key: addDays(today, 1), title: `Manana - ${formatShortDate(addDays(today, 1))}` },
+    { key: today, title: `Hoy - ${formatDateKey(today)}` },
+    { key: addDays(today, 1), title: `Manana - ${formatDateKey(addDays(today, 1))}` },
     { key: addDays(today, 2), title: `Proximos dias - ${formatShortDate(addDays(today, 2))}` },
     { key: addDays(today, 7), title: 'Esta semana' },
   ]
@@ -41,4 +41,32 @@ export function groupPlannerTasks(tasks: Task[]) {
       items: sortTasks(items),
     }
   })
+}
+
+export const periodLabels: Record<DayPeriod, string> = {
+  morning: 'Morning',
+  afternoon: 'Afternoon',
+  night: 'Night',
+}
+
+export const dayPeriods = Object.keys(periodLabels) as DayPeriod[]
+
+export function getPlanCandidates(tasks: Task[], dateKey = todayKey()) {
+  return {
+    overdue: sortTasks(tasks.filter((task) => isBeforeToday(task.date) && task.status !== 'done')),
+    unscheduled: sortTasks(tasks.filter((task) => task.date === null && task.status !== 'done')),
+    todayUnplanned: sortTasks(
+      tasks.filter((task) => task.date === dateKey && task.day_period === null && task.status !== 'done'),
+    ),
+  }
+}
+
+export function getTasksByPeriod(tasks: Task[], dateKey = todayKey()) {
+  return dayPeriods.reduce(
+    (groups, period) => ({
+      ...groups,
+      [period]: sortTasks(tasks.filter((task) => task.date === dateKey && task.day_period === period)),
+    }),
+    {} as Record<DayPeriod, Task[]>,
+  )
 }

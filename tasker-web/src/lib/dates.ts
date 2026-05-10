@@ -16,11 +16,18 @@ export function addDays(dateKey: string, days: number) {
 }
 
 export function formatShortDate(dateKey: string) {
-  return new Intl.DateTimeFormat('es-ES', {
+  return `${formatDateKey(dateKey)} ${new Intl.DateTimeFormat('es-ES', {
     weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  }).format(new Date(`${dateKey}T00:00:00`))
+  }).format(new Date(`${dateKey}T00:00:00`))}`
+}
+
+export function formatDateKey(dateKey: string | null) {
+  if (!dateKey) {
+    return ''
+  }
+
+  const [year, month, day] = dateKey.split('-')
+  return `${day}/${month}/${year.slice(2)}`
 }
 
 export function formatMonthLabel(monthKey: string) {

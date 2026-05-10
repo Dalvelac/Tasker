@@ -38,6 +38,37 @@
   font-size: 12px;
 }
 
+.command-card {
+  min-height: 128px;
+}
+
+.command-focus {
+  display: grid;
+  gap: 8px;
+}
+
+.command-focus strong {
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.command-focus span:not(.pill) {
+  color: var(--text-secondary);
+}
+
+.section-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-chip span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
 .task-list {
   display: grid;
   gap: 10px;
@@ -239,6 +270,25 @@
   gap: 10px;
 }
 
+.plan-panel,
+.plan-group,
+.plan-block {
+  display: grid;
+  gap: 14px;
+}
+
+.plan-group + .plan-group {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.period-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -4px;
+}
+
 .day-group__title {
   display: flex;
   align-items: center;
@@ -254,6 +304,28 @@
   display: grid;
   grid-template-columns: minmax(220px, 1fr) 180px 180px;
   gap: 10px;
+}
+
+.calendar-monthbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.calendar-monthbar__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 28px;
+  line-height: 1.15;
+  text-transform: capitalize;
+}
+
+.calendar-monthbar__meta {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
 .calendar-card {
@@ -391,6 +463,11 @@
   .task-editor--expanded,
   .calendar-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .calendar-monthbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .task-card__top {

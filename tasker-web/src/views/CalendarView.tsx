@@ -5,7 +5,7 @@ import { TaskForm } from '../components/TaskForm'
 import type { Section } from '../features/sections/types'
 import type { Task, TaskInput, TaskPriority, TaskStatus } from '../features/tasks/types'
 import { sortTasks } from '../features/tasks/utils'
-import { addMonths, formatMonthLabel, getMonthCalendarDays, monthKey } from '../lib/dates'
+import { addMonths, formatDateKey, formatMonthLabel, getMonthCalendarDays, monthKey } from '../lib/dates'
 
 type CalendarViewProps = {
   sections: Section[]
@@ -23,6 +23,7 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
   const [status, setStatus] = useState<'all' | TaskStatus>('all')
   const [priority, setPriority] = useState<'all' | TaskPriority>('all')
   const calendarDays = getMonthCalendarDays(month)
+  const currentMonth = monthKey()
   const visibleTasks = tasks.filter((task) => {
     if (!task.date) return false
     if (sectionId && task.section_id !== sectionId) return false
@@ -39,15 +40,23 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
       <div className="view-header">
         <div>
           <p className="view-eyebrow">Calendar</p>
-          <h2 className="view-title">{formatMonthLabel(month)}</h2>
+          <h2 className="view-title">Calendar View</h2>
           <p className="view-description">Month view with section colors, day summaries and quick creation.</p>
+        </div>
+      </div>
+
+      <div className="calendar-monthbar card card--pad">
+        <div>
+          <p className="view-eyebrow">Viewing month</p>
+          <h3 className="calendar-monthbar__title">{formatMonthLabel(month)}</h3>
+          <p className="calendar-monthbar__meta">Current month: {formatMonthLabel(currentMonth)}</p>
         </div>
         <div className="inline-actions">
           <button className="button" onClick={() => setMonth(addMonths(month, -1))} type="button">
-            Prev
+            Previous
           </button>
-          <button className="button" onClick={() => setMonth(monthKey())} type="button">
-            Today
+          <button className="button button--primary" onClick={() => setMonth(currentMonth)} type="button">
+            Current month
           </button>
           <button className="button" onClick={() => setMonth(addMonths(month, 1))} type="button">
             Next
@@ -116,7 +125,7 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
         </div>
 
         <aside className="card card--pad">
-          <h3 className="card-title">{selectedDate ? `Create on ${selectedDate}` : 'Select a day'}</h3>
+          <h3 className="card-title">{selectedDate ? `Create on ${formatDateKey(selectedDate)}` : 'Select a day'}</h3>
           {selectedDate ? (
             <TaskForm
               compact

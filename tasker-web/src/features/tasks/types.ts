@@ -1,6 +1,7 @@
 export type TaskStatus = 'pending' | 'in_progress' | 'done' | 'cancelled' | 'postponed'
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
 export type TaskType = 'task' | 'event' | 'time_block'
+export type DayPeriod = 'morning' | 'afternoon' | 'night'
 
 export type Task = {
   id: number
@@ -16,6 +17,7 @@ export type Task = {
   status: TaskStatus
   type: TaskType
   is_all_day: number
+  day_period: DayPeriod | null
   completed_at: string | null
   created_at: string
   updated_at: string
@@ -37,6 +39,7 @@ export type TaskInput = {
   status?: TaskStatus
   type?: TaskType
   is_all_day?: boolean | number
+  day_period?: DayPeriod | null
 }
 
 export type TaskFilters = {

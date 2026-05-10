@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Section } from '../features/sections/types'
 import type { Task, TaskInput, TaskPriority, TaskStatus, TaskType } from '../features/tasks/types'
-import { isBeforeToday } from '../lib/dates'
+import { formatDateKey, isBeforeToday } from '../lib/dates'
 import { SectionPicker } from './SectionPicker'
 
 type TaskCardProps = {
@@ -93,7 +93,11 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
           <span className="pill">{task.type}</span>
           <span className="pill">{task.start_time ?? 'sin hora'}</span>
           {task.end_time && <span className="pill">to {task.end_time}</span>}
-          {task.date && <span className="pill">{isBeforeToday(task.date) ? `overdue ${task.date}` : task.date}</span>}
+          {task.date && (
+            <span className="pill">
+              {isBeforeToday(task.date) ? `overdue ${formatDateKey(task.date)}` : formatDateKey(task.date)}
+            </span>
+          )}
         </div>
 
         <div className="task-editor">

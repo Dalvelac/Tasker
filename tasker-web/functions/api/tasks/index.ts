@@ -4,6 +4,7 @@ import {
   isPriority,
   isStatus,
   isTaskType,
+  optionalDayPeriod,
   optionalDate,
   optionalInteger,
   optionalString,
@@ -22,6 +23,7 @@ type TaskInput = {
   status?: string;
   type?: string;
   is_all_day?: boolean | number;
+  day_period?: string | null;
 };
 
 const taskSelect = `
@@ -145,6 +147,7 @@ export async function onRequestPost(context: AppContext) {
   const status = body.status ?? 'pending';
   const type = body.type ?? 'task';
   const isAllDay = body.is_all_day ? 1 : 0;
+  const dayPeriod = optionalDayPeriod(body.day_period);
 
   if (date === undefined) return error('Invalid date');
   if (startTime === undefined) return error('Invalid start time');
@@ -155,13 +158,14 @@ export async function onRequestPost(context: AppContext) {
   if (!isPriority(priority)) return error('Invalid priority');
   if (!isStatus(status)) return error('Invalid status');
   if (!isTaskType(type)) return error('Invalid task type');
+  if (dayPeriod === undefined) return error('Invalid day period');
 
   const result = await context.env.DB.prepare(
     `INSERT INTO tasks (
        title, notes, section_id, date, due_date, start_time, end_time,
-       duration_minutes, priority, status, type, is_all_day, completed_at
+       duration_minutes, priority, status, type, is_all_day, day_period, completed_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
   )
     .bind(
       title,
@@ -176,6 +180,7 @@ export async function onRequestPost(context: AppContext) {
       status,
       type,
       isAllDay,
+      dayPeriod,
       status,
     )
     .run();

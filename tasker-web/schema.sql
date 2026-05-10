@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   status TEXT NOT NULL DEFAULT 'pending',
   type TEXT NOT NULL DEFAULT 'task',
   is_all_day INTEGER NOT NULL DEFAULT 0,
+  day_period TEXT NULL,
   recurrence_rule TEXT NULL,
   recurrence_type TEXT NULL,
   recurrence_interval INTEGER NULL,
@@ -57,6 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_section_id ON tasks(section_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_day_period ON tasks(day_period);
 
 INSERT OR IGNORE INTO sections (name, slug, color, icon, description) VALUES
   ('Universidad', 'universidad', '#60A5FA', 'graduation-cap', 'Clases, entregas y estudio.'),

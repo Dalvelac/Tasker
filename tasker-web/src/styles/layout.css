@@ -127,11 +127,29 @@
   gap: 18px;
 }
 
+.command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(280px, 0.85fr);
+  gap: 12px;
+}
+
 .calendar-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
   gap: 18px;
   align-items: start;
+}
+
+.plan-layout {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.35fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.plan-blocks {
+  display: grid;
+  gap: 18px;
 }
 
 .content-grid {
@@ -162,7 +180,9 @@
   }
 
   .dashboard-grid,
+  .command-grid,
   .calendar-layout,
+  .plan-layout,
   .content-grid {
     grid-template-columns: 1fr;
   }
