@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import type { Section } from '../features/sections/types'
 import type { Task, TaskInput, TaskPriority, TaskStatus, TaskType } from '../features/tasks/types'
-import { addMinutesToTime, formatDuration, getTaskDurationMinutes } from '../features/tasks/utils'
-import { formatDateKey, isBeforeToday } from '../lib/dates'
+import { addMinutesToTime, formatDuration, getTaskDurationMinutes, inferDayPeriodFromTime } from '../features/tasks/utils'
+import { formatDateKey, isBeforeToday, todayKey } from '../lib/dates'
 import { SectionPicker } from './SectionPicker'
 
 type TaskCardProps = {
@@ -71,14 +71,19 @@ export function TaskCard({ task, sections, onDelete, onToggle, onUpdate }: TaskC
   async function makeBlock() {
     const nextStart = startTime || task.start_time || '09:00'
     const nextEnd = endTime || task.end_time || addMinutesToTime(nextStart, 60)
+    const nextDate = date || task.date || todayKey()
+    const nextPeriod = inferDayPeriodFromTime(nextStart)
 
     setStartTime(nextStart)
     setEndTime(nextEnd)
+    setDate(nextDate)
     setType('time_block')
     await onUpdate(task.id, {
       type: 'time_block',
+      date: nextDate,
       start_time: nextStart,
       end_time: nextEnd,
+      day_period: nextPeriod,
     })
   }
 

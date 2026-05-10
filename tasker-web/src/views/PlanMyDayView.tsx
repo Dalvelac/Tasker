@@ -1,3 +1,4 @@
+import { useState, type DragEvent } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { TaskCard } from '../components/TaskCard'
 import type { Section } from '../features/sections/types'
@@ -17,11 +18,20 @@ type CandidateGroupProps = {
   title: string
   tasks: Task[]
   sections: Section[]
+  dropZone?: DropZone
+  activeDropZone: DropZone | null
   onAssignPeriod: (task: Task, period: DayPeriod) => Promise<void>
+  onDropTask: (event: DragEvent<HTMLElement>, zone: DropZone) => Promise<void>
+  onDragStart: (event: DragEvent<HTMLElement>, task: Task) => void
+  onDragEnd: () => void
+  onDragEnterZone: (zone: DropZone) => void
+  onDragLeaveZone: () => void
   onDeleteTask: (id: number) => Promise<void>
   onToggleTask: (id: number) => Promise<void>
   onUpdateTask: (id: number, input: TaskInput) => Promise<void>
 }
+
+type DropZone = DayPeriod | 'unscheduled'
 
 function PeriodButtons({
   activePeriod,
@@ -57,13 +67,28 @@ function CandidateGroup({
   title,
   tasks,
   sections,
+  dropZone,
+  activeDropZone,
   onAssignPeriod,
+  onDropTask,
+  onDragStart,
+  onDragEnd,
+  onDragEnterZone,
+  onDragLeaveZone,
   onDeleteTask,
   onToggleTask,
   onUpdateTask,
 }: CandidateGroupProps) {
+  const isActiveDropZone = dropZone && activeDropZone === dropZone
+
   return (
-    <div className="plan-group">
+    <section
+      className={`plan-group plan-drop-zone ${isActiveDropZone ? 'is-drop-target' : ''}`}
+      onDragLeave={dropZone ? onDragLeaveZone : undefined}
+      onDragOver={dropZone ? (event) => event.preventDefault() : undefined}
+      onDragEnter={dropZone ? () => onDragEnterZone(dropZone) : undefined}
+      onDrop={dropZone ? (event) => onDropTask(event, dropZone) : undefined}
+    >
       <div className="day-group__title">
         <span>{title}</span>
         <span>{tasks.length}</span>
@@ -73,7 +98,14 @@ function CandidateGroup({
           <EmptyState title="Clear" detail="No tasks in this lane." />
         ) : (
           tasks.map((task) => (
-            <div className="task-list" key={task.id}>
+            <div
+              className="task-list plan-draggable"
+              draggable
+              key={task.id}
+              onDragEnd={onDragEnd}
+              onDragStart={(event) => onDragStart(event, task)}
+            >
+              <span className="drag-handle">Drag task</span>
               <TaskCard
                 sections={sections}
                 task={task}
@@ -86,7 +118,7 @@ function CandidateGroup({
           ))
         )}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -98,6 +130,7 @@ export function PlanMyDayView({
   onUpdateTask,
 }: PlanMyDayViewProps) {
   const today = todayKey()
+  const [activeDropZone, setActiveDropZone] = useState<DropZone | null>(null)
   const candidates = getPlanCandidates(tasks, today)
   const periodTasks = getTasksByPeriod(tasks, today)
 
@@ -107,6 +140,67 @@ export function PlanMyDayView({
 
   async function clearPeriod(task: Task) {
     await onUpdateTask(task.id, { date: today, day_period: null })
+  }
+
+  function handleDragStart(event: DragEvent<HTMLElement>, task: Task) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(task.id))
+  }
+
+  function handleDragEnd() {
+    setActiveDropZone(null)
+  }
+
+  function handleDragEnterZone(zone: DropZone) {
+    setActiveDropZone(zone)
+  }
+
+  function handleDragLeaveZone() {
+    setActiveDropZone(null)
+  }
+
+  async function handleDropTask(event: DragEvent<HTMLElement>, zone: DropZone) {
+    event.preventDefault()
+    setActiveDropZone(null)
+
+    const taskId = Number(event.dataTransfer.getData('text/plain'))
+
+    if (!Number.isInteger(taskId)) {
+      return
+    }
+
+    if (zone === 'unscheduled') {
+      await onUpdateTask(taskId, { date: null, day_period: null })
+      return
+    }
+
+    await onUpdateTask(taskId, { date: today, day_period: zone })
+  }
+
+  function renderDraggableTask(task: Task, activePeriod?: DayPeriod) {
+    return (
+      <div
+        className="task-list plan-draggable"
+        draggable
+        key={task.id}
+        onDragEnd={handleDragEnd}
+        onDragStart={(event) => handleDragStart(event, task)}
+      >
+        <span className="drag-handle">Drag task</span>
+        <TaskCard
+          sections={sections}
+          task={task}
+          onDelete={onDeleteTask}
+          onToggle={onToggleTask}
+          onUpdate={onUpdateTask}
+        />
+        <PeriodButtons
+          activePeriod={activePeriod}
+          onAssignPeriod={(nextPeriod) => assignPeriod(task, nextPeriod)}
+          onClearPeriod={activePeriod ? () => clearPeriod(task) : undefined}
+        />
+      </div>
+    )
   }
 
   return (
@@ -123,28 +217,47 @@ export function PlanMyDayView({
         <div className="card card--pad plan-panel">
           <h3 className="card-title">Candidates</h3>
           <CandidateGroup
+            activeDropZone={activeDropZone}
             sections={sections}
             tasks={candidates.overdue}
             title="Overdue"
             onAssignPeriod={assignPeriod}
+            onDragEnd={handleDragEnd}
+            onDragEnterZone={handleDragEnterZone}
+            onDragLeaveZone={handleDragLeaveZone}
+            onDragStart={handleDragStart}
+            onDropTask={handleDropTask}
             onDeleteTask={onDeleteTask}
             onToggleTask={onToggleTask}
             onUpdateTask={onUpdateTask}
           />
           <CandidateGroup
+            activeDropZone={activeDropZone}
+            dropZone="unscheduled"
             sections={sections}
             tasks={candidates.unscheduled}
             title="Unscheduled"
             onAssignPeriod={assignPeriod}
+            onDragEnd={handleDragEnd}
+            onDragEnterZone={handleDragEnterZone}
+            onDragLeaveZone={handleDragLeaveZone}
+            onDragStart={handleDragStart}
+            onDropTask={handleDropTask}
             onDeleteTask={onDeleteTask}
             onToggleTask={onToggleTask}
             onUpdateTask={onUpdateTask}
           />
           <CandidateGroup
+            activeDropZone={activeDropZone}
             sections={sections}
             tasks={candidates.todayUnplanned}
             title="Today unplanned"
             onAssignPeriod={assignPeriod}
+            onDragEnd={handleDragEnd}
+            onDragEnterZone={handleDragEnterZone}
+            onDragLeaveZone={handleDragLeaveZone}
+            onDragStart={handleDragStart}
+            onDropTask={handleDropTask}
             onDeleteTask={onDeleteTask}
             onToggleTask={onToggleTask}
             onUpdateTask={onUpdateTask}
@@ -156,34 +269,28 @@ export function PlanMyDayView({
             const openCount = periodTasks[period].filter((task) => task.status !== 'done').length
 
             return (
-              <div className="card card--pad plan-block" key={period}>
+              <section
+                className={`card card--pad plan-block plan-drop-zone ${
+                  activeDropZone === period ? 'is-drop-target' : ''
+                }`}
+                key={period}
+                onDragEnter={() => handleDragEnterZone(period)}
+                onDragLeave={handleDragLeaveZone}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => handleDropTask(event, period)}
+              >
                 <div className="day-group__title">
                   <span>{periodLabels[period]}</span>
                   <span>{openCount} open</span>
                 </div>
                 <div className="task-list">
                   {periodTasks[period].length === 0 ? (
-                    <EmptyState title="No tasks yet" detail={`Assign tasks to ${periodLabels[period]}.`} />
-                  ) : (
-                    periodTasks[period].map((task) => (
-                      <div className="task-list" key={task.id}>
-                        <TaskCard
-                          sections={sections}
-                          task={task}
-                          onDelete={onDeleteTask}
-                          onToggle={onToggleTask}
-                          onUpdate={onUpdateTask}
-                        />
-                        <PeriodButtons
-                          activePeriod={period}
-                          onAssignPeriod={(nextPeriod) => assignPeriod(task, nextPeriod)}
-                          onClearPeriod={() => clearPeriod(task)}
-                        />
-                      </div>
-                    ))
+                  <EmptyState title="No tasks yet" detail={`Assign tasks to ${periodLabels[period]}.`} />
+                ) : (
+                    periodTasks[period].map((task) => renderDraggableTask(task, period))
                   )}
                 </div>
-              </div>
+              </section>
             )
           })}
         </div>
