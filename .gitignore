@@ -1,1 +1,9 @@
+.env
+.dev.vars
 .wrangler/
+node_modules/
+dist/
+*.db
+*.sqlite
+*.sqlite3
+tasker-web/toimplement.md

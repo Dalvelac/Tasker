@@ -13,28 +13,31 @@ CREATE TABLE IF NOT EXISTS tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   notes TEXT,
-  section_id INTEGER NULL,
-  date TEXT NULL,
-  due_date TEXT NULL,
-  start_time TEXT NULL,
-  end_time TEXT NULL,
-  duration_minutes INTEGER NULL,
-  priority TEXT NOT NULL DEFAULT 'normal',
   status TEXT NOT NULL DEFAULT 'pending',
-  type TEXT NOT NULL DEFAULT 'task',
-  is_all_day INTEGER NOT NULL DEFAULT 0,
-  recurrence_rule TEXT NULL,
-  recurrence_type TEXT NULL,
-  recurrence_interval INTEGER NULL,
-  recurrence_days TEXT NULL,
-  recurrence_until TEXT NULL,
-  parent_task_id INTEGER NULL,
+  priority TEXT NOT NULL DEFAULT 'normal',
+  due_date TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  completed_at TEXT NULL,
-  FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL,
-  FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE SET NULL
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE tasks ADD COLUMN section_id INTEGER NULL;
+ALTER TABLE tasks ADD COLUMN date TEXT NULL;
+ALTER TABLE tasks ADD COLUMN start_time TEXT NULL;
+ALTER TABLE tasks ADD COLUMN end_time TEXT NULL;
+ALTER TABLE tasks ADD COLUMN duration_minutes INTEGER NULL;
+ALTER TABLE tasks ADD COLUMN type TEXT NOT NULL DEFAULT 'task';
+ALTER TABLE tasks ADD COLUMN is_all_day INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tasks ADD COLUMN recurrence_rule TEXT NULL;
+ALTER TABLE tasks ADD COLUMN recurrence_type TEXT NULL;
+ALTER TABLE tasks ADD COLUMN recurrence_interval INTEGER NULL;
+ALTER TABLE tasks ADD COLUMN recurrence_days TEXT NULL;
+ALTER TABLE tasks ADD COLUMN recurrence_until TEXT NULL;
+ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER NULL;
+ALTER TABLE tasks ADD COLUMN completed_at TEXT NULL;
+
+UPDATE tasks
+SET date = COALESCE(date, due_date)
+WHERE due_date IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,9 +48,7 @@ CREATE TABLE IF NOT EXISTS tags (
 CREATE TABLE IF NOT EXISTS task_tags (
   task_id INTEGER NOT NULL,
   tag_id INTEGER NOT NULL,
-  PRIMARY KEY (task_id, tag_id),
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+  PRIMARY KEY (task_id, tag_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_sections_slug ON sections(slug);
