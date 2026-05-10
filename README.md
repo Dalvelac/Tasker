@@ -1,3 +1,8 @@
+![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)
+![Built with React](https://img.shields.io/badge/React-19-38BDF8)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6)
+![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages-F38020)
+
 # Tasker
 
 Tasker is an open-source personal productivity and scheduling web application built to organize tasks, sections, daily planning, calendar views and productivity statistics from a single private dashboard.
