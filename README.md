@@ -926,9 +926,7 @@ Possible future improvements:
 
 ## License
 
-No license has been selected yet.
-
-If this project is intended to be fully open-source, add a license such as MIT, Apache-2.0 or GPL-3.0.
+AGPL-3.0
 
 ---
 
