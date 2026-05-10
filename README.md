@@ -6,6 +6,17 @@ The project is designed as a lightweight alternative to a traditional to-do app:
 
 > The application source code lives inside [`tasker-web/`](./tasker-web).
 
+## Application preview
+
+### Main dashboard
+<img width="2534" height="1281" alt="image" src="https://github.com/user-attachments/assets/02e39e47-1376-4fd1-a976-e082fe7c8b85" />
+
+### Quick add task
+<img width="549" height="360" alt="image" src="https://github.com/user-attachments/assets/4c942c5e-98ae-4fca-8231-2a31d38c6b02" />
+
+### Editable shortcuts
+<img width="1330" height="767" alt="image" src="https://github.com/user-attachments/assets/d25f39c9-f21b-4bdb-afec-2cd5452a5d0b" />
+
 ---
 
 ## Table of contents
