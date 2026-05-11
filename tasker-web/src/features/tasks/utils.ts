@@ -63,26 +63,41 @@ export function getTimelineTasks(tasks: Task[]) {
 
 export function groupPlannerTasks(tasks: Task[]) {
   const today = todayKey()
-  const labels = [
-    { key: today, title: `Today - ${formatDateKey(today)}` },
-    { key: addDays(today, 1), title: `Tomorrow - ${formatDateKey(addDays(today, 1))}` },
-    { key: addDays(today, 2), title: `Upcoming days - ${formatShortDate(addDays(today, 2))}` },
-    { key: addDays(today, 7), title: 'This week' },
+  const tomorrow = addDays(today, 1)
+  const upcomingDays = [addDays(today, 2), addDays(today, 3)]
+  const restOfWeekStart = addDays(today, 4)
+  const nextWeekStart = addDays(today, 7)
+  const groups = [
+    {
+      key: today,
+      title: `Today - ${formatDateKey(today)}`,
+      items: sortTasks(tasks.filter((task) => task.date === today)),
+    },
+    {
+      key: tomorrow,
+      title: `Tomorrow - ${formatDateKey(tomorrow)}`,
+      items: sortTasks(tasks.filter((task) => task.date === tomorrow)),
+    },
+    {
+      key: upcomingDays[0],
+      title: 'Upcoming days',
+      days: upcomingDays.map((day) => ({
+        key: day,
+        title: formatShortDate(day),
+        items: sortTasks(tasks.filter((task) => task.date === day)),
+      })),
+      items: sortTasks(tasks.filter((task) => task.date && upcomingDays.includes(task.date))),
+    },
+    {
+      key: restOfWeekStart,
+      title: 'This week',
+      items: sortTasks(
+        tasks.filter((task) => task.date && task.date >= restOfWeekStart && task.date < nextWeekStart),
+      ),
+    },
   ]
 
-  return labels.map((label, index) => {
-    const next = labels[index + 1]?.key
-    const items = tasks.filter((task) => {
-      if (!task.date) return false
-      if (!next) return task.date >= label.key && task.date <= label.key
-      return index < 2 ? task.date === label.key : task.date >= label.key && task.date < next
-    })
-
-    return {
-      ...label,
-      items: sortTasks(items),
-    }
-  })
+  return groups
 }
 
 const weekdayLabels: Record<string, string> = {

@@ -52,7 +52,34 @@ export function StackedPlannerView({
             <span>{group.title}</span>
             <span>{group.items.length} tasks</span>
           </div>
-          {group.items.length === 0 ? (
+          {group.days ? (
+            <div className="planner-subdays">
+              {group.days.map((day) => (
+                <section className="planner-subday" key={day.key}>
+                  <div className="planner-subday__title">
+                    <span>{day.title}</span>
+                    <span>{day.items.length} tasks</span>
+                  </div>
+                  {day.items.length === 0 ? (
+                    <EmptyState title="Nothing scheduled" detail="This day is open." />
+                  ) : (
+                    <div className="task-list">
+                      {day.items.map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          sections={sections}
+                          task={task}
+                          onDelete={onDeleteTask}
+                          onToggle={onToggleTask}
+                          onUpdate={onUpdateTask}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          ) : group.items.length === 0 ? (
             <EmptyState title="Nothing scheduled" detail="This day is open." />
           ) : (
             <div className="task-list">
