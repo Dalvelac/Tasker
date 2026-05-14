@@ -23,6 +23,7 @@ import { DashboardView } from '../views/DashboardView'
 import { InboxView } from '../views/InboxView'
 import { OverdueView } from '../views/OverdueView'
 import { PlanMyDayView } from '../views/PlanMyDayView'
+import { PomodoroView } from '../views/PomodoroView'
 import { SectionsView } from '../views/SectionsView'
 import { ShortcutsView } from '../views/ShortcutsView'
 import { StackedPlannerView } from '../views/StackedPlannerView'
@@ -61,6 +62,10 @@ function taskToInput(task: Task): TaskInput {
     recurrence_days: task.recurrence_days,
     recurrence_until: task.recurrence_until,
   }
+}
+
+function isApiUnavailableError(err: unknown) {
+  return err instanceof Error && err.message.includes('Expected JSON from /api/')
 }
 
 export default function App() {
@@ -134,6 +139,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh()
       .catch((err: unknown) => {
+        if (isApiUnavailableError(err)) {
+          setSections([])
+          setTasks([])
+          setStats(null)
+          setError(null)
+          return
+        }
+
         setError(err instanceof Error ? err.message : 'Could not load Tasker')
       })
       .finally(() => setIsLoading(false))
@@ -294,6 +307,7 @@ export default function App() {
     }
 
     if (activeView === 'today') return <TodayView {...commonTaskProps} onOpenPlan={() => setActiveView('plan')} />
+    if (activeView === 'focus') return <PomodoroView />
     if (activeView === 'plan') {
       return (
         <PlanMyDayView

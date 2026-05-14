@@ -71,9 +71,15 @@ export function loadShortcuts() {
   try {
     const raw = localStorage.getItem(shortcutStorageKey)
     if (!raw) return defaultShortcuts
+    const trimmedRaw = raw.trim()
+    if (!trimmedRaw.startsWith('{')) {
+      localStorage.removeItem(shortcutStorageKey)
+      return defaultShortcuts
+    }
 
-    return { ...defaultShortcuts, ...(JSON.parse(raw) as Partial<ShortcutMap>) }
+    return { ...defaultShortcuts, ...(JSON.parse(trimmedRaw) as Partial<ShortcutMap>) }
   } catch {
+    localStorage.removeItem(shortcutStorageKey)
     return defaultShortcuts
   }
 }

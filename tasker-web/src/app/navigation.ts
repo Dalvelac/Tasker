@@ -3,6 +3,7 @@ export type ViewId =
   | 'today'
   | 'planner'
   | 'plan'
+  | 'focus'
   | 'calendar'
   | 'upcoming'
   | 'overdue'
@@ -31,6 +32,7 @@ export const navigationGroups: NavigationGroup[] = [
       { id: 'dashboard', label: 'Dashboard', icon: '⌂' },
       { id: 'today', label: 'Today', icon: '◉' },
       { id: 'plan', label: 'Plan My Day', icon: '✦' },
+      { id: 'focus', label: 'Focus Timer', icon: '◌' },
     ],
   },
   {

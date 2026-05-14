@@ -2,6 +2,26 @@ type ApiEnvelope<T> = {
   data: T
 }
 
+async function readJson<T>(response: Response, path: string) {
+  const text = await response.text()
+
+  if (!text) return {} as T
+
+  const contentType = response.headers.get('content-type') ?? 'unknown content type'
+  const trimmedText = text.trim()
+  const looksLikeJson = trimmedText.startsWith('{') || trimmedText.startsWith('[')
+
+  if (!contentType.includes('application/json') && !looksLikeJson) {
+    throw new Error(`Expected JSON from ${path}, but received ${contentType}.`)
+  }
+
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    throw new Error(`Expected JSON from ${path}, but received ${contentType}.`)
+  }
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit) {
   const response = await fetch(path, {
     ...init,
@@ -12,13 +32,11 @@ export async function apiRequest<T>(path: string, init?: RequestInit) {
   })
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({ error: 'Request failed' }))) as {
-      error?: string
-    }
+    const body = await readJson<{ error?: string }>(response, path).catch(() => ({ error: 'Request failed' }))
     throw new Error(body.error ?? 'Request failed')
   }
 
-  const body = (await response.json()) as ApiEnvelope<T>
+  const body = await readJson<ApiEnvelope<T>>(response, path)
   return body.data
 }
 
