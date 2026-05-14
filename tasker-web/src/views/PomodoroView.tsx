@@ -36,8 +36,8 @@ function formatDurationLabel(totalSeconds: number) {
 export function PomodoroView() {
   const [durationSeconds, setDurationSeconds] = useState(presets[0].minutes * 60)
   const [remainingSeconds, setRemainingSeconds] = useState(presets[0].minutes * 60)
-  const [customHours, setCustomHours] = useState('')
-  const [customMinutes, setCustomMinutes] = useState('')
+  const [customHours, setCustomHours] = useState('0')
+  const [customMinutes, setCustomMinutes] = useState('45')
   const [isRunning, setIsRunning] = useState(false)
   const [isStopConfirming, setIsStopConfirming] = useState(false)
 
@@ -149,7 +149,6 @@ export function PomodoroView() {
           </svg>
 
           <div className="pomodoro-ring__content">
-            <span className="pill">{isComplete ? 'complete' : isRunning ? 'in progress' : selectedPreset}</span>
             <strong>{formatTimer(remainingSeconds)}</strong>
             <span>{isComplete ? 'Session finished' : isRunning ? 'Focus session active' : 'Ready to start'}</span>
           </div>

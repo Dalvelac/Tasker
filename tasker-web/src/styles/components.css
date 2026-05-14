@@ -435,7 +435,7 @@
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 8px;
+  gap: 12px;
   border: 1px solid rgba(56, 189, 248, 0.2);
   border-radius: 999px;
   background: rgba(11, 15, 20, 0.48);
@@ -451,7 +451,7 @@
   overflow-wrap: anywhere;
 }
 
-.pomodoro-ring__content span:not(.pill) {
+.pomodoro-ring__content span {
   color: var(--text-secondary);
   font-size: 13px;
 }
