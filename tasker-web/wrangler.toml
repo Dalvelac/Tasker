@@ -1,8 +1,8 @@
 name = "tasker-web"
-compatibility_date = "current date"
+compatibility_date = "2026-05-24"
 pages_build_output_dir = "dist"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "insert your DB name"
-database_id = "put your own DB ID here."
+database_name = "tasker-db"
+database_id = "94aa8790-c193-4fbc-a6e6-f5ed8d9498db"
