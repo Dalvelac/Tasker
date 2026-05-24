@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   notes TEXT,
+  source_path TEXT NULL,
   section_id INTEGER NULL,
   date TEXT NULL,
   due_date TEXT NULL,
@@ -59,6 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_section_id ON tasks(section_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_day_period ON tasks(day_period);
+CREATE INDEX IF NOT EXISTS idx_tasks_source_path ON tasks(source_path);
 
 INSERT OR IGNORE INTO sections (name, slug, color, icon, description) VALUES
   ('Universidad', 'universidad', '#60A5FA', 'graduation-cap', 'Clases, entregas y estudio.'),

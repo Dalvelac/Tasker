@@ -17,6 +17,7 @@ import {
 type TaskInput = {
   title?: string;
   notes?: string | null;
+  source_path?: string | null;
   section_id?: number | null;
   date?: string | null;
   start_time?: string | null;
@@ -167,6 +168,7 @@ export async function onRequestPost(context: AppContext) {
   }
 
   const notes = optionalString(body.notes);
+  const sourcePath = optionalString(body.source_path);
   const sectionId = optionalInteger(body.section_id);
   const date = optionalDate(body.date);
   const startTime = optionalTime(body.start_time);
@@ -205,15 +207,16 @@ export async function onRequestPost(context: AppContext) {
 
   const result = await context.env.DB.prepare(
     `INSERT INTO tasks (
-       title, notes, section_id, date, due_date, start_time, end_time,
+       title, notes, source_path, section_id, date, due_date, start_time, end_time,
        duration_minutes, priority, status, type, is_all_day, day_period,
        recurrence_type, recurrence_interval, recurrence_days, recurrence_until, completed_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
   )
     .bind(
       title,
       notes,
+      sourcePath,
       sectionId,
       date,
       date,

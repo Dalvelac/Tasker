@@ -203,7 +203,7 @@ export async function parseObsidianImport(files: File[]): Promise<ObsidianImport
 
   const notes = await Promise.all(
     sortedFiles.map(async (file) => ({
-      title: fileTitle(file.name),
+      title: fileTitle(file.webkitRelativePath || file.name),
       content: await file.text(),
       path: file.webkitRelativePath || file.name,
     })),

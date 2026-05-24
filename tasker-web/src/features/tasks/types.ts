@@ -8,6 +8,7 @@ export type Task = {
   id: number
   title: string
   notes: string | null
+  source_path: string | null
   section_id: number | null
   date: string | null
   due_date: string | null
@@ -37,6 +38,7 @@ export type Task = {
 export type TaskInput = {
   title?: string
   notes?: string | null
+  source_path?: string | null
   section_id?: number | null
   date?: string | null
   start_time?: string | null

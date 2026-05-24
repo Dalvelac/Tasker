@@ -17,6 +17,7 @@ import {
 type TaskInput = {
   title?: string;
   notes?: string | null;
+  source_path?: string | null;
   section_id?: number | null;
   date?: string | null;
   start_time?: string | null;
@@ -96,6 +97,11 @@ export async function onRequestPatch(context: AppContext) {
   if (body.notes !== undefined) {
     updates.push('notes = ?');
     values.push(optionalString(body.notes));
+  }
+
+  if (body.source_path !== undefined) {
+    updates.push('source_path = ?');
+    values.push(optionalString(body.source_path));
   }
 
   if (body.section_id !== undefined) {

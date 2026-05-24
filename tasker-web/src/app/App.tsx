@@ -4,7 +4,7 @@ import { QuickAddModal } from '../components/QuickAddModal'
 import { RecurrenceModal } from '../components/RecurrenceModal'
 import { SearchModal } from '../components/SearchModal'
 import { ShortcutsOverlay } from '../components/ShortcutsOverlay'
-import { createSection, deleteSection, listSections } from '../features/sections/api'
+import { createSection, deleteSection, listSections, updateSection } from '../features/sections/api'
 import type { ObsidianImport } from '../features/import/obsidian'
 import type { Section, SectionInput } from '../features/sections/types'
 import {
@@ -51,6 +51,7 @@ function taskToInput(task: Task): TaskInput {
   return {
     title: task.title,
     notes: task.notes,
+    source_path: task.source_path,
     section_id: task.section_id,
     date: task.date,
     start_time: task.start_time,
@@ -125,6 +126,32 @@ export default function App() {
     return nextName
   }
 
+  async function saveNotesToSection(sectionId: number, input: ObsidianImport) {
+    const existingNotes = tasks.filter((task) => task.section_id === sectionId)
+
+    for (const note of [...input.notes].reverse()) {
+      const existing = existingNotes.find((task) => task.source_path === note.path || `${task.title}.md` === note.path)
+
+      if (existing) {
+        await updateTask(existing.id, {
+          title: note.title,
+          notes: note.content,
+          source_path: note.path,
+        })
+      } else {
+        await createTask({
+          title: note.title,
+          notes: note.content,
+          source_path: note.path,
+          section_id: sectionId,
+          priority: 'normal',
+          status: 'pending',
+          type: 'task',
+        })
+      }
+    }
+  }
+
   async function importObsidianNotes(input: ObsidianImport) {
     const sectionName = uniqueSectionName(input.sectionName)
     const color = importColors[sections.length % importColors.length]
@@ -137,20 +164,77 @@ export default function App() {
         description: `Imported from Obsidian with ${input.notes.length} Markdown notes.`,
       })
 
-      for (const note of [...input.notes].reverse()) {
-        await createTask({
-          title: note.title,
-          notes: note.content,
-          section_id: section.id,
-          priority: 'normal',
-          status: 'pending',
-          type: 'task',
-        })
-      }
-
+      await saveNotesToSection(section.id, input)
       await refresh()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Could not import Obsidian notes'
+      setError(message)
+      throw new Error(message, { cause: err })
+    }
+  }
+
+  async function importObsidianNotesIntoSection(sectionId: number, input: ObsidianImport) {
+    try {
+      setError(null)
+      await saveNotesToSection(sectionId, input)
+      await refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not add notes to this folder'
+      setError(message)
+      throw new Error(message, { cause: err })
+    }
+  }
+
+  async function createObsidianVault(name: string) {
+    const sectionName = uniqueSectionName(name)
+    const color = importColors[sections.length % importColors.length]
+
+    try {
+      setError(null)
+      const section = await createSection({
+        name: sectionName,
+        color,
+        description: 'Imported from Obsidian with 0 Markdown notes.',
+      })
+      await refresh()
+      return section.id
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not create Markdown folder'
+      setError(message)
+      throw new Error(message, { cause: err })
+    }
+  }
+
+  async function createObsidianNote(sectionId: number, path: string, content = '') {
+    const title = path.split('/').pop()?.replace(/\.md$/i, '') || 'Untitled'
+
+    try {
+      setError(null)
+      const result = await createTask({
+        title,
+        notes: content || null,
+        source_path: path,
+        section_id: sectionId,
+        priority: 'normal',
+        status: 'pending',
+        type: 'task',
+      })
+      await refresh()
+      return result.id
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not create Markdown note'
+      setError(message)
+      throw new Error(message, { cause: err })
+    }
+  }
+
+  async function renameObsidianVault(sectionId: number, name: string) {
+    try {
+      setError(null)
+      await updateSection(sectionId, { name })
+      await refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not rename Markdown folder'
       setError(message)
       throw new Error(message, { cause: err })
     }
@@ -417,7 +501,19 @@ export default function App() {
       )
     }
     if (activeView === 'obsidian') {
-      return <ObsidianImportView sections={sections} onImportObsidianNotes={importObsidianNotes} />
+      return (
+        <ObsidianImportView
+          sections={sections}
+          tasks={tasks}
+          onCreateObsidianNote={createObsidianNote}
+          onCreateObsidianVault={createObsidianVault}
+          onDeleteTask={commonTaskProps.onDeleteTask}
+          onImportObsidianNotes={importObsidianNotes}
+          onImportObsidianNotesIntoSection={importObsidianNotesIntoSection}
+          onRenameObsidianVault={renameObsidianVault}
+          onUpdateTask={commonTaskProps.onUpdateTask}
+        />
+      )
     }
     if (activeView === 'sections') {
       return (

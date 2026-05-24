@@ -241,7 +241,9 @@
 }
 
 .markdown-preview h3,
-.markdown-preview h4 {
+.markdown-preview h4,
+.markdown-preview h5,
+.markdown-preview h6 {
   font-size: 14px;
 }
 
@@ -268,19 +270,111 @@
   font-size: 12px;
 }
 
+.markdown-preview a,
+.markdown-preview__wikilink,
+.markdown-preview__embed {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.markdown-preview__wikilink,
+.markdown-preview__embed {
+  border-bottom: 1px solid rgba(56, 189, 248, 0.42);
+}
+
+.markdown-preview mark {
+  border-radius: 4px;
+  background: rgba(250, 204, 21, 0.2);
+  color: var(--text-primary);
+  padding: 0 3px;
+}
+
+.markdown-preview del {
+  color: var(--text-muted);
+}
+
+.markdown-preview__task {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  list-style: none;
+}
+
+.markdown-preview__task input {
+  margin-top: 3px;
+}
+
+.markdown-preview__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.markdown-preview table {
+  width: 100%;
+  min-width: 360px;
+  border-collapse: collapse;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-preview th:first-child,
+.markdown-preview td:first-child {
+  border-left: 0;
+}
+
+.markdown-preview tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.markdown-preview th {
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.markdown-preview__code-block {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 8px;
+  background: #080d14;
+}
+
+.markdown-preview__code-language {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
 .markdown-preview pre {
   max-height: 360px;
   overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.82);
-  padding: 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 14px;
 }
 
 .markdown-preview pre code {
   border: 0;
   background: transparent;
+  color: #d9e7ff;
   padding: 0;
+  display: block;
+  font-size: 13px;
+  line-height: 1.6;
   white-space: pre;
 }
 
@@ -288,6 +382,35 @@
   border-left: 3px solid var(--accent);
   padding-left: 10px;
   color: var(--text-muted);
+}
+
+.markdown-preview__callout {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.38);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.08);
+  padding: 10px 12px;
+}
+
+.markdown-preview__callout-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 750;
+}
+
+.markdown-preview__callout-title span {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.markdown-preview__callout-body {
+  color: var(--text-secondary);
 }
 
 .markdown-preview hr {
@@ -339,6 +462,36 @@
   gap: 8px;
 }
 
+.icon-button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 0;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.icon-button:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  color: var(--accent);
+}
+
+.icon-button--primary {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--accent);
+}
+
+.icon-button--danger:hover {
+  border-color: rgba(239, 68, 68, 0.55);
+  color: var(--danger);
+}
+
 .sections-panel {
   display: grid;
   gap: 14px;
@@ -354,6 +507,19 @@
   transition:
     background 160ms ease,
     border-color 160ms ease;
+}
+
+.obsidian-dropzone--compact {
+  gap: 9px;
+  padding: 12px;
+}
+
+.obsidian-dropzone--compact .card-title {
+  margin-bottom: 4px;
+}
+
+.obsidian-dropzone--compact .view-description {
+  font-size: 12px;
 }
 
 .obsidian-dropzone.is-dragging {
@@ -374,6 +540,226 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+.obsidian-vault {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 680px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.obsidian-vault__folders,
+.obsidian-vault__files {
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  background: rgba(17, 24, 39, 0.52);
+  padding: 14px;
+}
+
+.obsidian-vault__section-list,
+.obsidian-vault__file-group {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.obsidian-vault__quick-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.obsidian-vault__name-input {
+  margin-top: 5px;
+  max-width: 520px;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.obsidian-vault__label,
+.obsidian-vault__file-group-name {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.obsidian-vault__folder,
+.obsidian-vault__file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 9px;
+  text-align: left;
+}
+
+.obsidian-vault__file {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+
+.obsidian-vault__folder:hover,
+.obsidian-vault__folder.is-active,
+.obsidian-vault__file:hover,
+.obsidian-vault__file.is-active {
+  border-color: rgba(56, 189, 248, 0.42);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--text-primary);
+}
+
+.obsidian-vault__folder-accent {
+  width: 8px;
+  height: 34px;
+  border-radius: 999px;
+}
+
+.obsidian-vault__folder strong,
+.obsidian-vault__file span {
+  display: block;
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-vault__folder small,
+.obsidian-vault__file small {
+  display: block;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.obsidian-vault__workspace {
+  min-width: 0;
+}
+
+.obsidian-vault__toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 14px;
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+  padding: 14px;
+}
+
+.obsidian-vault__toolbar h3,
+.obsidian-vault__note-header h3 {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+}
+
+.obsidian-vault__panes {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 520px;
+}
+
+.obsidian-vault__files {
+  max-height: 620px;
+  overflow: auto;
+}
+
+.obsidian-vault__note {
+  min-width: 0;
+  max-height: 620px;
+  overflow: auto;
+  padding: 18px;
+}
+
+.obsidian-vault__note.is-fullscreen {
+  position: fixed;
+  z-index: 50;
+  inset: 16px;
+  max-height: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #0f1622;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.obsidian-vault__note-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 14px;
+}
+
+.obsidian-vault__editor {
+  min-height: clamp(620px, 74vh, 980px);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.obsidian-vault__note.is-fullscreen .obsidian-vault__editor {
+  min-height: calc(100vh - 170px);
+}
+
+.obsidian-vault__note-body {
+  min-height: 520px;
+}
+
+.obsidian-vault__note-body.is-editing {
+  display: grid;
+}
+
+.obsidian-vault__mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.obsidian-vault__mode {
+  display: grid;
+  min-height: 32px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.obsidian-vault__mode:hover,
+.obsidian-vault__mode.is-active {
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent);
+}
+
+.obsidian-vault__icon-actions {
+  flex-wrap: nowrap;
+}
+
+.obsidian-vault__empty,
+.obsidian-vault__empty-note {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.obsidian-vault__empty-note {
+  padding: 18px;
 }
 
 .weekday-picker {
@@ -1173,5 +1559,21 @@ kbd {
   .pomodoro-custom {
     grid-template-columns: 1fr;
     width: min(100%, 260px);
+  }
+
+  .obsidian-vault,
+  .obsidian-vault__toolbar,
+  .obsidian-vault__panes {
+    grid-template-columns: 1fr;
+  }
+
+  .obsidian-vault__folders,
+  .obsidian-vault__files {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .obsidian-vault__note-header {
+    flex-direction: column;
   }
 }
