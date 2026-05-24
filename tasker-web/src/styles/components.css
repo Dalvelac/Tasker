@@ -214,6 +214,88 @@
   font-size: 13px;
 }
 
+.markdown-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3,
+.markdown-preview h4 {
+  margin: 6px 0 0;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.markdown-preview h1 {
+  font-size: 18px;
+}
+
+.markdown-preview h2 {
+  font-size: 16px;
+}
+
+.markdown-preview h3,
+.markdown-preview h4 {
+  font-size: 14px;
+}
+
+.markdown-preview p,
+.markdown-preview ul,
+.markdown-preview ol,
+.markdown-preview blockquote,
+.markdown-preview pre {
+  margin: 0;
+}
+
+.markdown-preview ul,
+.markdown-preview ol {
+  padding-left: 20px;
+}
+
+.markdown-preview code {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--text-primary);
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.markdown-preview pre {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.82);
+  padding: 10px;
+}
+
+.markdown-preview pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  white-space: pre;
+}
+
+.markdown-preview blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  color: var(--text-muted);
+}
+
+.markdown-preview hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
 .task-meta {
   display: flex;
   flex-wrap: wrap;
@@ -255,6 +337,43 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.sections-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.obsidian-dropzone {
+  display: grid;
+  gap: 12px;
+  border: 1px dashed rgba(56, 189, 248, 0.44);
+  border-radius: var(--radius);
+  background: rgba(22, 30, 46, 0.7);
+  padding: 18px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.obsidian-dropzone.is-dragging {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.obsidian-dropzone__message {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .weekday-picker {

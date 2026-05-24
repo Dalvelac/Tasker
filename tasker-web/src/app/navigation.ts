@@ -9,6 +9,7 @@ export type ViewId =
   | 'overdue'
   | 'inbox'
   | 'unscheduled'
+  | 'obsidian'
   | 'sections'
   | 'shortcuts'
 
@@ -51,6 +52,7 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       { id: 'inbox', label: 'Inbox', icon: '↓' },
       { id: 'unscheduled', label: 'Unscheduled', icon: '◇' },
+      { id: 'obsidian', label: 'Obsidian Import', icon: 'MD' },
       { id: 'sections', label: 'Sections', icon: '⬡' },
     ],
   },

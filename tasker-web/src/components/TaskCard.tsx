@@ -9,6 +9,7 @@ import {
   inferDayPeriodFromTime,
 } from '../features/tasks/utils'
 import { formatDateKey, isBeforeToday, todayKey } from '../lib/dates'
+import { MarkdownPreview } from './MarkdownPreview'
 import { SectionPicker } from './SectionPicker'
 
 type TaskCardProps = {
@@ -128,7 +129,7 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
         <div className="task-card__top">
           <div>
             <h3 className="task-card__title">{task.title}</h3>
-            {task.notes && <p className="task-card__notes">{task.notes}</p>}
+            {task.notes && <MarkdownPreview value={task.notes} />}
           </div>
 
           <div className="task-actions">

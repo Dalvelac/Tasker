@@ -5,6 +5,7 @@ import { RecurrenceModal } from '../components/RecurrenceModal'
 import { SearchModal } from '../components/SearchModal'
 import { ShortcutsOverlay } from '../components/ShortcutsOverlay'
 import { createSection, deleteSection, listSections } from '../features/sections/api'
+import type { ObsidianImport } from '../features/import/obsidian'
 import type { Section, SectionInput } from '../features/sections/types'
 import {
   defaultShortcuts,
@@ -21,6 +22,7 @@ import type { Task, TaskInput } from '../features/tasks/types'
 import { CalendarView } from '../views/CalendarView'
 import { DashboardView } from '../views/DashboardView'
 import { InboxView } from '../views/InboxView'
+import { ObsidianImportView } from '../views/ObsidianImportView'
 import { OverdueView } from '../views/OverdueView'
 import { PlanMyDayView } from '../views/PlanMyDayView'
 import { PomodoroView } from '../views/PomodoroView'
@@ -32,6 +34,8 @@ import { UnscheduledView } from '../views/UnscheduledView'
 import { UpcomingView } from '../views/UpcomingView'
 import { navigationItems, type ViewId } from './navigation'
 import { addDays, todayKey } from '../lib/dates'
+
+const importColors = ['#60A5FA', '#A78BFA', '#22C55E', '#F472B6', '#F59E0B', '#38BDF8', '#FB7185']
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false
@@ -104,6 +108,51 @@ export default function App() {
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
+    }
+  }
+
+  function uniqueSectionName(name: string) {
+    const existingNames = new Set(sections.map((section) => section.name.toLowerCase()))
+    const baseName = name.trim() || 'Obsidian Notes'
+    let nextName = baseName
+    let index = 2
+
+    while (existingNames.has(nextName.toLowerCase())) {
+      nextName = `${baseName} ${index}`
+      index += 1
+    }
+
+    return nextName
+  }
+
+  async function importObsidianNotes(input: ObsidianImport) {
+    const sectionName = uniqueSectionName(input.sectionName)
+    const color = importColors[sections.length % importColors.length]
+
+    try {
+      setError(null)
+      const section = await createSection({
+        name: sectionName,
+        color,
+        description: `Imported from Obsidian with ${input.notes.length} Markdown notes.`,
+      })
+
+      for (const note of [...input.notes].reverse()) {
+        await createTask({
+          title: note.title,
+          notes: note.content,
+          section_id: section.id,
+          priority: 'normal',
+          status: 'pending',
+          type: 'task',
+        })
+      }
+
+      await refresh()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not import Obsidian notes'
+      setError(message)
+      throw new Error(message, { cause: err })
     }
   }
 
@@ -367,12 +416,16 @@ export default function App() {
         />
       )
     }
+    if (activeView === 'obsidian') {
+      return <ObsidianImportView sections={sections} onImportObsidianNotes={importObsidianNotes} />
+    }
     if (activeView === 'sections') {
       return (
         <SectionsView
           sections={sections}
           onCreateSection={(input: SectionInput) => runAction(() => createSection(input).then(() => undefined))}
           onDeleteSection={(id: number) => runAction(() => deleteSection(id).then(() => undefined))}
+          onImportObsidianNotes={importObsidianNotes}
         />
       )
     }
