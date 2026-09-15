@@ -22,6 +22,9 @@ The project is designed as a lightweight alternative to a traditional to-do app:
 ### Editable shortcuts
 <img width="1330" height="767" alt="image" src="https://github.com/user-attachments/assets/d25f39c9-f21b-4bdb-afec-2cd5452a5d0b" />
 
+## .MD Notes Imports [NEW!]
+<img width="1279" height="783" alt="image" src="https://github.com/user-attachments/assets/2c909a99-656d-4cff-859d-a40262d1ea5f" />
+
 ---
 
 ## Table of contents
@@ -205,6 +208,10 @@ Examples of default sections include:
 ### Shortcuts
 
 The Shortcuts view displays and manages keyboard shortcuts. Shortcuts are stored locally in the browser using `localStorage`.
+
+## .md Notes Importing
+
+New feature, allows you to import notes in markdown format, functioning similarly to Obsidian, but on the go, and free :).
 
 ---
 
