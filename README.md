@@ -22,6 +22,9 @@ The project is designed as a lightweight alternative to a traditional to-do app:
 ### Editable shortcuts
 <img width="1330" height="767" alt="image" src="https://github.com/user-attachments/assets/d25f39c9-f21b-4bdb-afec-2cd5452a5d0b" />
 
+## .MD Notes Imports [NEW!]
+<img width="1279" height="783" alt="image" src="https://github.com/user-attachments/assets/2c909a99-656d-4cff-859d-a40262d1ea5f" />
+
 ---
 
 ## Table of contents
@@ -205,6 +208,10 @@ Examples of default sections include:
 ### Shortcuts
 
 The Shortcuts view displays and manages keyboard shortcuts. Shortcuts are stored locally in the browser using `localStorage`.
+
+## .md Notes Importing
+
+New feature, allows you to import notes in markdown format, functioning similarly to Obsidian, but on the go, and free :).
 
 ---
 
@@ -584,15 +591,26 @@ Run the remote command before using the production deployment for the first time
 
 There are two useful local development modes.
 
-### 1. Frontend-only Vite mode
+### 1. Vite with the local API
+
+For a new local database, run `npm run db:init` once from `tasker-web/`.
+For an existing database, apply only its missing migrations instead.
+
+Start the API in one terminal:
+
+```bash
+npm run dev:api
+```
+
+Start Vite in another terminal:
 
 ```bash
 npm run dev
 ```
 
-This starts the Vite dev server.
-
-Use this when you are working mainly on UI components. API calls to `/api/...` require the Cloudflare Pages Functions environment, so full backend functionality may not work in this mode unless you proxy or mock the API.
+Open the Vite URL, normally http://localhost:5173. Vite forwards `/api/...`
+to the Pages Functions server on 127.0.0.1:8788. Keep both terminals running
+to import and save notes, with frontend hot reload.
 
 ### 2. Full Cloudflare Pages local mode
 
@@ -603,6 +621,8 @@ npm run build
 ```
 
 Then run Pages locally:
+
+Stop `dev:api` first if it is using port 8788.
 
 ```bash
 npx wrangler pages dev dist

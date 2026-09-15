@@ -1,6 +1,7 @@
 import type { AppContext, D1Value } from '../../_shared/db';
 import { error, json, readJson } from '../../_shared/http';
 import { getWeekday } from '../../_shared/recurrence';
+import { claimLegacyNotePath, notePathKey } from '../../_shared/notePaths';
 import {
   isPriority,
   isStatus,
@@ -167,9 +168,13 @@ export async function onRequestPost(context: AppContext) {
     return error('Title is required');
   }
 
-  const notes = optionalString(body.notes);
+  const notes = body.notes === undefined || body.notes === null ? null : typeof body.notes === 'string' ? body.notes : undefined;
+  if (notes === undefined) return error('Invalid notes');
   const sourcePath = optionalString(body.source_path);
+  if (sourcePath === undefined) return error('Invalid source path');
+  const sourcePathKey = sourcePath ? notePathKey(sourcePath) : null;
   const sectionId = optionalInteger(body.section_id);
+  if (sectionId === undefined) return error('Invalid section');
   const date = optionalDate(body.date);
   const startTime = optionalTime(body.start_time);
   const endTime = optionalTime(body.end_time);
@@ -178,7 +183,7 @@ export async function onRequestPost(context: AppContext) {
   const status = body.status ?? 'pending';
   const type = body.type ?? 'task';
   const isAllDay = body.is_all_day ? 1 : 0;
-  const dayPeriod = body.day_period === undefined ? inferDayPeriodFromTime(startTime) : optionalDayPeriod(body.day_period);
+  const dayPeriod = body.day_period === undefined ? inferDayPeriodFromTime(startTime ?? null) : optionalDayPeriod(body.day_period);
   const recurrenceType = optionalRecurrenceType(body.recurrence_type);
   const recurrenceInterval = body.recurrence_interval === undefined ? 1 : optionalInteger(body.recurrence_interval);
   const recurrenceDaysInput = optionalRecurrenceDays(body.recurrence_days);
@@ -202,21 +207,32 @@ export async function onRequestPost(context: AppContext) {
   if (recurrenceUntil === undefined) return error('Invalid recurrence until');
   if (!validateTimeBlock(type, startTime, endTime)) return error('Time blocks require start and end time');
 
+  // Claim migrated notes first; creation and retry updates below are atomic.
+  if (sourcePathKey && sectionId !== null) {
+    await claimLegacyNotePath(context.env.DB, sectionId, sourcePathKey);
+  }
+
   const recurrenceDays =
     recurrenceType === 'weekly' ? recurrenceDaysInput ?? (date ? String(getWeekday(date)) : null) : null;
 
   const result = await context.env.DB.prepare(
     `INSERT INTO tasks (
-       title, notes, source_path, section_id, date, due_date, start_time, end_time,
+       title, notes, source_path, source_path_key, section_id, date, due_date, start_time, end_time,
        duration_minutes, priority, status, type, is_all_day, day_period,
        recurrence_type, recurrence_interval, recurrence_days, recurrence_until, completed_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)
+     ON CONFLICT(section_id, source_path_key)
+       WHERE section_id IS NOT NULL AND source_path_key IS NOT NULL
+     DO UPDATE SET title = excluded.title, notes = excluded.notes,
+       source_path = excluded.source_path, updated_at = CURRENT_TIMESTAMP
+     RETURNING id`,
   )
     .bind(
       title,
       notes,
       sourcePath,
+      sourcePathKey,
       sectionId,
       date,
       date,
@@ -234,7 +250,8 @@ export async function onRequestPost(context: AppContext) {
       recurrenceType ? recurrenceUntil : null,
       status,
     )
-    .run();
+    .first<{ id: number }>();
 
-  return json({ id: result.meta.last_row_id }, { status: 201 });
+  if (!result) return error('Could not save note', 500);
+  return json({ id: result.id }, { status: 201 });
 }

@@ -32,8 +32,9 @@ export async function apiRequest<T>(path: string, init?: RequestInit) {
   })
 
   if (!response.ok) {
-    const body = await readJson<{ error?: string }>(response, path).catch(() => ({ error: 'Request failed' }))
-    throw new Error(body.error ?? 'Request failed')
+    const body = await readJson<{ error?: string }>(response, path).catch(() => ({} as { error?: string }))
+    const detail = body.error || 'The API could not complete the request. Check that the backend is running.'
+    throw new Error(`${init?.method ?? 'GET'} ${path} (${response.status}): ${detail}`)
   }
 
   const body = await readJson<ApiEnvelope<T>>(response, path)

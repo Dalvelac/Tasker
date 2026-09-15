@@ -592,6 +592,33 @@
   text-transform: uppercase;
 }
 
+.obsidian-vault__files-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.obsidian-vault__files-heading small {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.obsidian-vault__search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 82px;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.obsidian-vault__search-row .field,
+.obsidian-vault__search-row .select {
+  min-width: 0;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
 .obsidian-vault__folder,
 .obsidian-vault__file {
   display: grid;
@@ -702,6 +729,10 @@
   margin-bottom: 16px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 14px;
+}
+
+.obsidian-vault__note-header .obsidian-vault__label {
+  color: var(--text-secondary);
 }
 
 .obsidian-vault__editor {

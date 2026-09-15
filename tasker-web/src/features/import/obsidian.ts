@@ -45,15 +45,10 @@ function fileTitle(path: string) {
 }
 
 function commonRoot(paths: string[]) {
-  const roots = new Set(
-    paths
-      .map(cleanPath)
-      .map((path) => path.split('/'))
-      .filter((parts) => parts.length > 1)
-      .map((parts) => parts[0]),
-  )
-
-  return roots.size === 1 ? [...roots][0] : null
+  const normalized = paths.map(cleanPath)
+  const roots = new Set(normalized.map((path) => path.split('/')[0]))
+  if (roots.size !== 1 || normalized.some((path) => !path.includes('/'))) return null
+  return [...roots][0]
 }
 
 function stripCommonRoot(path: string, root: string | null) {
