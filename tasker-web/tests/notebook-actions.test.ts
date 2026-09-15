@@ -68,6 +68,27 @@ test('updates matching notes and creates missing notes during import', async () 
   assert.equal(harness.refreshes, 1)
 })
 
+test('root notes do not overwrite nested notes with the same title', async () => {
+  const harness = createHarness([{ id: 7, section_id: 3, title: 'Meeting', source_path: 'Work/Meeting.md' }] as Task[])
+  await harness.actions.importNotesIntoSection(3, {
+    sectionName: 'Vault',
+    notes: [{ title: 'Meeting', path: 'Meeting.md', content: '# Root note' }],
+  })
+  assert.equal(harness.createdTasks.length, 1)
+  assert.equal(harness.createdTasks[0].source_path, 'Meeting.md')
+  assert.deepEqual(harness.updatedTasks, [])
+})
+
+test('legacy notes without paths still match by title', async () => {
+  const harness = createHarness([{ id: 7, section_id: 3, title: 'Meeting', source_path: null }] as Task[])
+  await harness.actions.importNotesIntoSection(3, {
+    sectionName: 'Vault',
+    notes: [{ title: 'Meeting', path: 'Meeting.md', content: '# Updated' }],
+  })
+  assert.equal(harness.createdTasks.length, 0)
+  assert.equal(harness.updatedTasks[0][0], 7)
+})
+
 test('deduplicates repeated paths within one import batch', async () => {
   const harness = createHarness()
   await harness.actions.importNotesIntoSection(3, {
@@ -82,10 +103,10 @@ test('deduplicates repeated paths within one import batch', async () => {
   assert.equal(harness.updatedTasks[0][0], 101)
 })
 
-test('reports a useful fallback error and does not refresh after a failed action', async () => {
+test('reports a useful fallback error and refreshes after a failed action', async () => {
   const harness = createHarness()
   harness.api.createSection = async () => { throw null }
   await assert.rejects(harness.actions.createVault('Broken'), /Could not create Markdown folder/)
   assert.deepEqual(harness.errors, [null, 'Could not create Markdown folder'])
-  assert.equal(harness.refreshes, 0)
+  assert.equal(harness.refreshes, 1)
 })

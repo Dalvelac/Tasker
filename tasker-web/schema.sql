@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   title TEXT NOT NULL,
   notes TEXT,
   source_path TEXT NULL,
+  source_path_key TEXT NULL,
   section_id INTEGER NULL,
   date TEXT NULL,
   due_date TEXT NULL,
@@ -61,6 +62,9 @@ CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_completed_at ON tasks(completed_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_day_period ON tasks(day_period);
 CREATE INDEX IF NOT EXISTS idx_tasks_source_path ON tasks(source_path);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_section_source_path_key
+  ON tasks(section_id, source_path_key)
+  WHERE section_id IS NOT NULL AND source_path_key IS NOT NULL;
 
 INSERT OR IGNORE INTO sections (name, slug, color, icon, description) VALUES
   ('Universidad', 'universidad', '#60A5FA', 'graduation-cap', 'Clases, entregas y estudio.'),

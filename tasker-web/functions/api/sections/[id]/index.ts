@@ -27,8 +27,12 @@ export async function onRequestPatch(context: AppContext) {
       return error('Section name is required');
     }
 
+    const slug = slugify(name);
+    if (!slug) return error('Section name must include letters or numbers');
+    const conflict = await context.env.DB.prepare('SELECT id FROM sections WHERE slug = ? AND id != ?').bind(slug, id).first();
+    if (conflict) return error('A section with this name already exists');
     updates.push('name = ?', 'slug = ?');
-    values.push(name, slugify(name));
+    values.push(name, slug);
   }
 
   if (body.color !== undefined) {

@@ -96,12 +96,15 @@ export async function onRequestPatch(context: AppContext) {
 
   if (body.notes !== undefined) {
     updates.push('notes = ?');
-    values.push(optionalString(body.notes));
+    if (body.notes !== null && typeof body.notes !== 'string') return error('Invalid notes');
+    values.push(body.notes === null ? null : body.notes);
   }
 
   if (body.source_path !== undefined) {
-    updates.push('source_path = ?');
-    values.push(optionalString(body.source_path));
+    const sourcePath = optionalString(body.source_path);
+    if (sourcePath === undefined) return error('Invalid source path');
+    updates.push('source_path = ?', 'source_path_key = ?');
+    values.push(sourcePath, sourcePath ? sourcePath.toLocaleLowerCase() : null);
   }
 
   if (body.section_id !== undefined) {

@@ -40,6 +40,11 @@ export async function onRequestPost(context: AppContext) {
     return error('Section name must include letters or numbers');
   }
 
+  const conflict = await context.env.DB.prepare('SELECT id FROM sections WHERE slug = ?').bind(slug).first();
+  if (conflict) {
+    return error('A section with this name already exists');
+  }
+
   const values: D1Value[] = [name, slug, color, icon, description];
   const result = await context.env.DB.prepare(
     `INSERT INTO sections (name, slug, color, icon, description)

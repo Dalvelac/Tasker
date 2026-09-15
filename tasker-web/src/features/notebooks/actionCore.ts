@@ -30,6 +30,13 @@ export function createNotebookActionSet(
       await refresh()
       return result
     } catch (error) {
+      // A batch may have written earlier notes before one request failed. Refresh
+      // so those notes are visible and a retry can match them by path.
+      try {
+        await refresh()
+      } catch {
+        // Preserve the original action error for the user.
+      }
       const message = error instanceof Error && error.message ? error.message : fallbackMessage
       setError(message)
       throw new Error(message, { cause: error })
@@ -39,8 +46,8 @@ export function createNotebookActionSet(
   async function saveNotes(sectionId: number, input: ObsidianImport) {
     const noteIdsByPath = new Map<string, number>()
     tasks.filter((task) => task.section_id === sectionId).forEach((task) => {
-      if (task.source_path) noteIdsByPath.set(task.source_path.toLocaleLowerCase(), task.id)
-      noteIdsByPath.set(`${task.title}.md`.toLocaleLowerCase(), task.id)
+      const path = task.source_path || `${task.title}.md`
+      noteIdsByPath.set(path.toLocaleLowerCase(), task.id)
     })
 
     for (const note of [...input.notes].reverse()) {

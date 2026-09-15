@@ -66,7 +66,7 @@ export function NotebookFileBrowser({ activeNoteId, notebookName, notes, isEditi
       </div>
       {visibleNotes.length === 0 ? (
         <p className="obsidian-vault__empty">{notes.length === 0 ? 'This folder is empty.' : `No notes match “${query.trim()}”.`}</p>
-      ) : groupNotes(visibleNotes).map(([group, groupNotes]) => (
+      ) : groupNotes(visibleNotes, sort).map(([group, groupNotes]) => (
         <div className="obsidian-vault__file-group" key={group}>
           <p className="obsidian-vault__file-group-name">{group}</p>
           {groupNotes.map((note) => (

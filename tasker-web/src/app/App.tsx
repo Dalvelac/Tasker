@@ -67,10 +67,6 @@ function taskToInput(task: Task): TaskInput {
   }
 }
 
-function isApiUnavailableError(err: unknown) {
-  return err instanceof Error && err.message.includes('Expected JSON from /api/')
-}
-
 export default function App() {
   const [activeView, setActiveView] = useState<ViewId>('dashboard')
   const [sections, setSections] = useState<Section[]>([])
@@ -107,6 +103,7 @@ export default function App() {
       await refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
+      throw err
     }
   }
 
@@ -144,14 +141,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh()
       .catch((err: unknown) => {
-        if (isApiUnavailableError(err)) {
-          setSections([])
-          setTasks([])
-          setStats(null)
-          setError(null)
-          return
-        }
-
         setError(err instanceof Error ? err.message : 'Could not load Tasker')
       })
       .finally(() => setIsLoading(false))

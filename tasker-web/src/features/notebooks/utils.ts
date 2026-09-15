@@ -45,7 +45,7 @@ export function isNotebookSection(section: Section, sectionTasks: Task[]) {
   return section.description?.includes('Imported from Obsidian') || sectionTasks.some((task) => task.source_path)
 }
 
-export function groupNotes(notes: Task[]) {
+export function groupNotes(notes: Task[], sort: NoteSort = 'path') {
   const groups = new Map<string, Task[]>()
   notes.forEach((note) => {
     const path = notePath(note).split('/')
@@ -56,7 +56,9 @@ export function groupNotes(notes: Task[]) {
   return [...groups.entries()]
     .map(([group, groupNotes]) => [
       group,
-      [...groupNotes].sort((left, right) => naturalCompare(notePath(left), notePath(right))),
+      [...groupNotes].sort((left, right) => sort === 'updated'
+        ? right.updated_at.localeCompare(left.updated_at)
+        : naturalCompare(notePath(left), notePath(right))),
     ] as const)
     .sort(([left], [right]) => naturalCompare(left, right))
 }

@@ -167,8 +167,10 @@ export async function onRequestPost(context: AppContext) {
     return error('Title is required');
   }
 
-  const notes = optionalString(body.notes);
+  const notes = body.notes === undefined || body.notes === null ? null : typeof body.notes === 'string' ? body.notes : undefined;
+  if (notes === undefined) return error('Invalid notes');
   const sourcePath = optionalString(body.source_path);
+  const sourcePathKey = sourcePath ? sourcePath.toLocaleLowerCase() : null;
   const sectionId = optionalInteger(body.section_id);
   const date = optionalDate(body.date);
   const startTime = optionalTime(body.start_time);
@@ -202,21 +204,36 @@ export async function onRequestPost(context: AppContext) {
   if (recurrenceUntil === undefined) return error('Invalid recurrence until');
   if (!validateTimeBlock(type, startTime, endTime)) return error('Time blocks require start and end time');
 
+  // Imports may be retried after a network failure. Treat section + path as
+  // an idempotency key so a note is updated instead of duplicated.
+  if (sourcePathKey && sectionId !== null) {
+    const existing = await context.env.DB.prepare(
+      'SELECT id FROM tasks WHERE section_id = ? AND source_path_key = ? LIMIT 1',
+    ).bind(sectionId, sourcePathKey).first<{ id: number }>();
+    if (existing) {
+      await context.env.DB.prepare(
+        'UPDATE tasks SET title = ?, notes = ?, source_path = ?, source_path_key = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      ).bind(title, notes, sourcePath, sourcePathKey, existing.id).run();
+      return json({ id: existing.id });
+    }
+  }
+
   const recurrenceDays =
     recurrenceType === 'weekly' ? recurrenceDaysInput ?? (date ? String(getWeekday(date)) : null) : null;
 
   const result = await context.env.DB.prepare(
     `INSERT INTO tasks (
-       title, notes, source_path, section_id, date, due_date, start_time, end_time,
+       title, notes, source_path, source_path_key, section_id, date, due_date, start_time, end_time,
        duration_minutes, priority, status, type, is_all_day, day_period,
        recurrence_type, recurrence_interval, recurrence_days, recurrence_until, completed_at
      )
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'done' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
   )
     .bind(
       title,
       notes,
       sourcePath,
+      sourcePathKey,
       sectionId,
       date,
       date,

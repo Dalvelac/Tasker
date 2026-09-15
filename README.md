@@ -584,15 +584,26 @@ Run the remote command before using the production deployment for the first time
 
 There are two useful local development modes.
 
-### 1. Frontend-only Vite mode
+### 1. Vite with the local API
+
+For a new local database, run `npm run db:init` once from `tasker-web/`.
+For an existing database, apply only its missing migrations instead.
+
+Start the API in one terminal:
+
+```bash
+npm run dev:api
+```
+
+Start Vite in another terminal:
 
 ```bash
 npm run dev
 ```
 
-This starts the Vite dev server.
-
-Use this when you are working mainly on UI components. API calls to `/api/...` require the Cloudflare Pages Functions environment, so full backend functionality may not work in this mode unless you proxy or mock the API.
+Open the Vite URL, normally http://localhost:5173. Vite forwards `/api/...`
+to the Pages Functions server on 127.0.0.1:8788. Keep both terminals running
+to import and save notes, with frontend hot reload.
 
 ### 2. Full Cloudflare Pages local mode
 
@@ -603,6 +614,8 @@ npm run build
 ```
 
 Then run Pages locally:
+
+Stop `dev:api` first if it is using port 8788.
 
 ```bash
 npx wrangler pages dev dist

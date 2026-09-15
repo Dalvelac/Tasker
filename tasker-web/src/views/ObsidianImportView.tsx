@@ -46,8 +46,12 @@ export function ObsidianImportView({ sections, tasks, onCreateObsidianNote, onCr
 
   async function saveActiveNote() {
     if (!activeNote) return
-    await onUpdateTask(activeNote.id, { title: activeNote.title, notes: draft.trim() || null, source_path: notePath(activeNote) })
+    await onUpdateTask(activeNote.id, { title: activeNote.title, notes: draft || null, source_path: notePath(activeNote) })
     setIsEditing(false)
+  }
+
+  function consumeFailure(promise: Promise<unknown>) {
+    void promise.catch(() => undefined)
   }
 
   useEffect(() => {
@@ -55,7 +59,7 @@ export function ObsidianImportView({ sections, tasks, onCreateObsidianNote, onCr
     function saveWithShortcut(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
         event.preventDefault()
-        void saveActiveNote()
+        consumeFailure(saveActiveNote())
       }
     }
     window.addEventListener('keydown', saveWithShortcut)
@@ -135,7 +139,7 @@ export function ObsidianImportView({ sections, tasks, onCreateObsidianNote, onCr
         <div className="obsidian-vault__workspace">
           {activeSection ? <>
             <div className="obsidian-vault__toolbar">
-              <div><p className="obsidian-vault__label">Current folder</p><input className="field obsidian-vault__name-input" onBlur={() => void saveVaultName(activeSection)} onChange={(event) => setVaultNameDrafts((current) => ({ ...current, [activeSection.id]: event.target.value }))} onKeyDown={(event) => {
+              <div><p className="obsidian-vault__label">Current folder</p><input className="field obsidian-vault__name-input" onBlur={() => consumeFailure(saveVaultName(activeSection))} onChange={(event) => setVaultNameDrafts((current) => ({ ...current, [activeSection.id]: event.target.value }))} onKeyDown={(event) => {
                 if (event.key === 'Enter') event.currentTarget.blur()
               }} value={vaultNameDrafts[activeSection.id] ?? activeSection.name} /></div>
               <ObsidianDropzone compact buttonLabel="Add files" description="Drop more .md files or a ZIP into this folder." onImport={async (input) => {
@@ -159,13 +163,20 @@ export function ObsidianImportView({ sections, tasks, onCreateObsidianNote, onCr
                 setDraft(activeNote?.notes ?? '')
                 setIsEditing(false)
               }} onDelete={() => {
-                if (activeNote && window.confirm(`Delete ${fileName(notePath(activeNote))}? This cannot be undone.`)) void onDeleteTask(activeNote.id)
+                if (activeNote && window.confirm(`Delete ${fileName(notePath(activeNote))}? This cannot be undone.`)) {
+                  const deletedId = activeNote.id
+                  setActiveTaskId(null)
+                  setDraft('')
+                  setIsEditing(false)
+                  setIsFullscreen(false)
+                  consumeFailure(onDeleteTask(deletedId))
+                }
               }} onDownload={downloadActiveNote} onDraftChange={setDraft} onEdit={() => {
                 setDraft(activeNote?.notes ?? '')
                 setIsEditing(true)
               }} onFullscreenToggle={() => setIsFullscreen((value) => !value)} onPathChange={(value) => {
                 if (activeNote) setNotePathDrafts((current) => ({ ...current, [activeNote.id]: value }))
-              }} onPathSave={() => void saveNotePath()} onSave={() => void saveActiveNote()} />
+              }} onPathSave={() => consumeFailure(saveNotePath())} onSave={() => consumeFailure(saveActiveNote())} />
             </div>
           </> : <div className="obsidian-vault__empty-note">Import a ZIP or Markdown files to start a vault.</div>}
         </div>
