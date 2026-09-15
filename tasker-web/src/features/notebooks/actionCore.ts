@@ -1,6 +1,7 @@
 import type { ObsidianImport } from '../import/obsidian'
 import type { Section, SectionInput } from '../sections/types'
 import type { Task, TaskInput } from '../tasks/types'
+import { notePathKey } from '../../../shared/notePathKey.ts'
 
 const notebookColors = ['#60A5FA', '#A78BFA', '#22C55E', '#F472B6', '#F59E0B', '#38BDF8', '#FB7185']
 
@@ -47,11 +48,14 @@ export function createNotebookActionSet(
     const noteIdsByPath = new Map<string, number>()
     tasks.filter((task) => task.section_id === sectionId).forEach((task) => {
       const path = task.source_path || `${task.title}.md`
-      noteIdsByPath.set(path.toLocaleLowerCase(), task.id)
+      const key = notePathKey(path)
+      const existingId = noteIdsByPath.get(key)
+      // Match the backend's legacy duplicate policy regardless of task sorting.
+      noteIdsByPath.set(key, existingId === undefined ? task.id : Math.min(existingId, task.id))
     })
 
     for (const note of [...input.notes].reverse()) {
-      const pathKey = note.path.toLocaleLowerCase()
+      const pathKey = notePathKey(note.path)
       const existingId = noteIdsByPath.get(pathKey)
       if (existingId) {
         await api.updateTask(existingId, { title: note.title, notes: note.content, source_path: note.path })

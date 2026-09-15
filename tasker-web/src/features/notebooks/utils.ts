@@ -1,5 +1,6 @@
 import type { Section } from '../sections/types'
 import type { Task } from '../tasks/types'
+import { notePathKey } from '../../../shared/notePathKey.ts'
 
 export type NoteSort = 'path' | 'updated'
 
@@ -29,15 +30,15 @@ export function normalizePath(path: string) {
 
 export function uniquePath(path: string, notes: Task[]) {
   const normalizedPath = normalizePath(path)
-  const existingPaths = new Set(notes.map((note) => notePath(note).toLowerCase()))
-  if (!existingPaths.has(normalizedPath.toLowerCase())) return normalizedPath
+  const existingPaths = new Set(notes.map((note) => notePathKey(notePath(note))))
+  if (!existingPaths.has(notePathKey(normalizedPath))) return normalizedPath
 
   const parts = normalizedPath.split('/')
   const name = parts.pop() ?? 'Untitled.md'
   const folder = parts.length > 0 ? `${parts.join('/')}/` : ''
   const baseName = name.replace(/\.md$/i, '')
   let index = 2
-  while (existingPaths.has(`${folder}${baseName} ${index}.md`.toLowerCase())) index += 1
+  while (existingPaths.has(notePathKey(`${folder}${baseName} ${index}.md`))) index += 1
   return `${folder}${baseName} ${index}.md`
 }
 

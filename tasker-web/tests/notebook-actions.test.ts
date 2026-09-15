@@ -79,6 +79,19 @@ test('root notes do not overwrite nested notes with the same title', async () =>
   assert.deepEqual(harness.updatedTasks, [])
 })
 
+test('imports target the oldest historical duplicate regardless of task ordering', async () => {
+  const harness = createHarness([
+    { id: 7, section_id: 3, title: 'École', source_path: 'École.md' },
+    { id: 12, section_id: 3, title: 'école', source_path: 'école.md' },
+  ] as Task[])
+  await harness.actions.importNotesIntoSection(3, {
+    sectionName: 'Vault', notes: [{ title: 'école', path: 'école.md', content: 'updated' }],
+  })
+  assert.equal(harness.updatedTasks[0][0], 7)
+  assert.equal(harness.updatedTasks.length, 1)
+  assert.equal(harness.createdTasks.length, 0)
+})
+
 test('legacy notes without paths still match by title', async () => {
   const harness = createHarness([{ id: 7, section_id: 3, title: 'Meeting', source_path: null }] as Task[])
   await harness.actions.importNotesIntoSection(3, {

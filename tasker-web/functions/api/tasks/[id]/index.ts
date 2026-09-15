@@ -1,6 +1,7 @@
 import type { AppContext, D1Value } from '../../../_shared/db';
 import { error, getNumericParam, json, readJson } from '../../../_shared/http';
 import { createNextRecurringInstance, getWeekday, type RecurringTask } from '../../../_shared/recurrence';
+import { claimLegacyNotePath, notePathKey } from '../../../_shared/notePaths';
 import {
   isPriority,
   isStatus,
@@ -103,8 +104,8 @@ export async function onRequestPatch(context: AppContext) {
   if (body.source_path !== undefined) {
     const sourcePath = optionalString(body.source_path);
     if (sourcePath === undefined) return error('Invalid source path');
-    updates.push('source_path = ?', 'source_path_key = ?');
-    values.push(sourcePath, sourcePath ? sourcePath.toLocaleLowerCase() : null);
+    updates.push('source_path = ?');
+    values.push(sourcePath);
   }
 
   if (body.section_id !== undefined) {
@@ -271,12 +272,41 @@ export async function onRequestPatch(context: AppContext) {
     if (!validateTimeBlock(type, startTime, endTime)) return error('Time blocks require start and end time');
   }
 
+  if (body.source_path !== undefined || body.section_id !== undefined) {
+    const current = await context.env.DB.prepare(
+      'SELECT source_path, source_path_key, section_id FROM tasks WHERE id = ?',
+    ).bind(id).first<{ source_path: string | null; source_path_key: string | null; section_id: number | null }>();
+    if (!current) return error('Note not found', 404);
+    const nextPath = body.source_path === undefined ? current.source_path : optionalString(body.source_path);
+    const nextSection = body.section_id === undefined ? current.section_id : optionalInteger(body.section_id);
+    if (nextPath === undefined || nextSection === undefined) return error('Invalid note path or section');
+    let key = nextPath ? notePathKey(nextPath) : null;
+    // Historical duplicates must remain editable by ID. Do not force a NULL
+    // legacy key into the unique index while simply saving the same note.
+    const unchangedLegacyPath = current.source_path_key === null && nextSection === current.section_id
+      && key === (current.source_path ? notePathKey(current.source_path) : null);
+    if (unchangedLegacyPath) {
+      key = null;
+    } else if (key && nextSection !== null) {
+      await claimLegacyNotePath(context.env.DB, nextSection, key);
+    }
+    updates.push('source_path_key = ?');
+    values.push(key);
+  }
+
   updates.push('updated_at = CURRENT_TIMESTAMP');
   values.push(id);
 
-  await context.env.DB.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`)
-    .bind(...values)
-    .run();
+  try {
+    await context.env.DB.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`)
+      .bind(...values)
+      .run();
+  } catch (cause) {
+    if (cause instanceof Error && cause.message.includes('UNIQUE constraint failed: tasks.section_id, tasks.source_path_key')) {
+      return error('A note already exists at this path in the destination folder', 409);
+    }
+    throw cause;
+  }
 
   if (completedExistingTask && completedExistingTask.status !== 'done') {
     await createNextRecurringInstance(context, completedExistingTask);
