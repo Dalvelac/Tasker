@@ -33,45 +33,79 @@ function formatDurationLabel(totalSeconds: number) {
   return totalMinutes === 1 ? '1 minute' : `${totalMinutes} minutes`
 }
 
+type Session = { duration: number; remaining: number; deadline: number | null }
+const focusKey = 'tasker.focus.v1'
+function readSession(): Session {
+  try {
+    const value = JSON.parse(localStorage.getItem(focusKey) || 'null')
+    if (
+      value &&
+      Number.isInteger(value.duration) &&
+      value.duration > 0 &&
+      value.duration <= maxCustomMinutes * 60 &&
+      Number.isInteger(value.remaining) &&
+      value.remaining >= 0 &&
+      value.remaining <= value.duration &&
+      (value.deadline === null || Number.isFinite(value.deadline))
+    )
+      return value
+  } catch {
+    /* Use a fresh session when browser storage is unavailable. */
+  }
+  return { duration: 1800, remaining: 1800, deadline: null }
+}
+function timeLeft(session: Session) {
+  return session.deadline === null
+    ? session.remaining
+    : Math.max(0, Math.ceil((session.deadline - Date.now()) / 1000))
+}
 export function PomodoroView() {
-  const [durationSeconds, setDurationSeconds] = useState(presets[0].minutes * 60)
-  const [remainingSeconds, setRemainingSeconds] = useState(presets[0].minutes * 60)
+  const [session, setSession] = useState(readSession)
+  const [, tick] = useState(0)
+  const durationSeconds = session.duration
+  const remainingSeconds = timeLeft(session)
+  const isRunning = session.deadline !== null && remainingSeconds > 0
+  function persist(next: Session) {
+    setSession(next)
+    try {
+      localStorage.setItem(focusKey, JSON.stringify(next))
+    } catch {
+      /* The timer still runs for this visit. */
+    }
+  }
   const [customHours, setCustomHours] = useState('0')
   const [customMinutes, setCustomMinutes] = useState('45')
-  const [isRunning, setIsRunning] = useState(false)
   const [isStopConfirming, setIsStopConfirming] = useState(false)
 
   const progress = durationSeconds === 0 ? 0 : remainingSeconds / durationSeconds
   const isComplete = remainingSeconds === 0
   const hasStarted = remainingSeconds < durationSeconds || isRunning
   const selectedPreset = useMemo(
-    () => presets.find((preset) => preset.minutes * 60 === durationSeconds)?.label ?? formatDurationLabel(durationSeconds),
+    () =>
+      presets.find((preset) => preset.minutes * 60 === durationSeconds)?.label ??
+      formatDurationLabel(durationSeconds),
     [durationSeconds],
   )
 
   useEffect(() => {
-    if (!isRunning) return
-
-    const intervalId = window.setInterval(() => {
-      setRemainingSeconds((current) => {
-        if (current <= 1) {
-          window.clearInterval(intervalId)
-          setIsRunning(false)
-          return 0
-        }
-
-        return current - 1
-      })
-    }, 1000)
-
-    return () => window.clearInterval(intervalId)
+    const update = () => tick((value) => value + 1)
+    const sync = (event: StorageEvent) => {
+      if (event.key === focusKey) setSession(readSession())
+    }
+    const interval = isRunning ? window.setInterval(update, 500) : undefined
+    window.addEventListener('focus', update)
+    window.addEventListener('storage', sync)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', update)
+      window.removeEventListener('storage', sync)
+      document.removeEventListener('visibilitychange', update)
+    }
   }, [isRunning])
-
   function selectPreset(minutes: number) {
-    const nextDuration = minutes * 60
-    setDurationSeconds(nextDuration)
-    setRemainingSeconds(nextDuration)
-    setIsRunning(false)
+    if (hasStarted && !isComplete && !window.confirm('Replace the current focus session?')) return
+    persist({ duration: minutes * 60, remaining: minutes * 60, deadline: null })
     setIsStopConfirming(false)
   }
 
@@ -89,36 +123,20 @@ export function PomodoroView() {
     const nextMinutes = getCustomTotalMinutes()
     if (nextMinutes === null) return
 
-    const nextDuration = nextMinutes * 60
-    setDurationSeconds(nextDuration)
-    setRemainingSeconds(nextDuration)
+    selectPreset(nextMinutes)
     setCustomHours(String(Math.floor(nextMinutes / 60)))
     setCustomMinutes(String(nextMinutes % 60))
-    setIsRunning(false)
-    setIsStopConfirming(false)
   }
-
   function toggleTimer() {
-    if (isComplete) {
-      setRemainingSeconds(durationSeconds)
-      setIsRunning(true)
-      setIsStopConfirming(false)
-      return
-    }
-
-    setIsRunning((current) => !current)
+    const remaining = isComplete ? durationSeconds : timeLeft(session)
+    persist({ ...session, remaining, deadline: isRunning ? null : Date.now() + remaining * 1000 })
     setIsStopConfirming(false)
   }
-
   function requestStop() {
-    if (!hasStarted) return
-    setIsRunning(false)
-    setIsStopConfirming(true)
+    if (hasStarted) setIsStopConfirming(true)
   }
-
   function confirmStop() {
-    setRemainingSeconds(durationSeconds)
-    setIsRunning(false)
+    persist({ duration: durationSeconds, remaining: durationSeconds, deadline: null })
     setIsStopConfirming(false)
   }
 
@@ -150,7 +168,15 @@ export function PomodoroView() {
 
           <div className="pomodoro-ring__content">
             <strong>{formatTimer(remainingSeconds)}</strong>
-            <span>{isComplete ? 'Session finished' : isRunning ? 'Focus session active' : 'Ready to start'}</span>
+            <span>
+              {isComplete
+                ? 'Session finished'
+                : isRunning
+                  ? 'Focus session active'
+                  : hasStarted
+                    ? 'Paused'
+                    : 'Ready to start'}
+            </span>
           </div>
         </div>
 
