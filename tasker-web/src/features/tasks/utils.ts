@@ -1,3 +1,4 @@
+import { isActionable } from '../../../shared/planner'
 import { addDays, formatDateKey, formatShortDate, isBeforeToday, todayKey } from '../../lib/dates'
 import type { DayPeriod, Task } from './types'
 
@@ -57,7 +58,9 @@ export function addMinutesToTime(startTime: string, minutes: number) {
 
 export function getTimelineTasks(tasks: Task[]) {
   return sortTasks(
-    tasks.filter((task) => task.start_time && (task.type === 'time_block' || task.end_time || task.duration_minutes)),
+    tasks.filter(
+      (task) => task.start_time && (task.type === 'time_block' || task.end_time || task.duration_minutes),
+    ),
   )
 }
 
@@ -150,12 +153,6 @@ export const periodLabels: Record<DayPeriod, string> = {
   night: 'Night',
 }
 
-export const periodTimeRanges: Record<DayPeriod, { end: string; start: string }> = {
-  morning: { start: '06:00', end: '07:00' },
-  afternoon: { start: '12:00', end: '13:00' },
-  night: { start: '21:00', end: '22:00' },
-}
-
 export const dayPeriods = Object.keys(periodLabels) as DayPeriod[]
 
 export function inferDayPeriodFromTime(startTime: string | null): DayPeriod | null {
@@ -180,16 +177,14 @@ export function getEffectiveDayPeriod(task: Task) {
   return task.day_period ?? inferDayPeriodFromTime(task.start_time)
 }
 
-export function getPeriodDefaultTimeRange(period: DayPeriod) {
-  return periodTimeRanges[period]
-}
-
 export function getPlanCandidates(tasks: Task[], dateKey = todayKey()) {
   return {
-    overdue: sortTasks(tasks.filter((task) => isBeforeToday(task.date) && task.status !== 'done')),
-    unscheduled: sortTasks(tasks.filter((task) => task.date === null && task.status !== 'done')),
+    overdue: sortTasks(tasks.filter((task) => isBeforeToday(task.date) && isActionable(task, dateKey))),
+    unscheduled: sortTasks(tasks.filter((task) => task.date === null && isActionable(task, dateKey))),
     todayUnplanned: sortTasks(
-      tasks.filter((task) => task.date === dateKey && getEffectiveDayPeriod(task) === null && task.status !== 'done'),
+      tasks.filter(
+        (task) => task.date === dateKey && getEffectiveDayPeriod(task) === null && isActionable(task, dateKey),
+      ),
     ),
   }
 }
@@ -201,5 +196,12 @@ export function getTasksByPeriod(tasks: Task[], dateKey = todayKey()) {
       [period]: sortTasks(tasks.filter((task) => task.date === dateKey && getEffectiveDayPeriod(task) === period)),
     }),
     {} as Record<DayPeriod, Task[]>,
+  )
+}
+
+export function nextTimedTask(tasks: Task[], now = new Date()) {
+  const clock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0')
+  return sortTasks(tasks).find(
+    (task) => isActionable(task, todayKey()) && task.start_time && task.start_time >= clock,
   )
 }
