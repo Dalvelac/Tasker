@@ -1,4 +1,6 @@
 export type Section = {
+  is_vault: number
+  note_count: number
   id: number
   name: string
   slug: string
@@ -11,6 +13,8 @@ export type Section = {
 }
 
 export type SectionInput = {
+  is_vault?: boolean
+  requestKey?: string
   name: string
   color: string
   icon?: string | null
