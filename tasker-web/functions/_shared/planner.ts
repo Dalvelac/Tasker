@@ -25,11 +25,29 @@ export const taskJoin = ' FROM tasks LEFT JOIN sections ON sections.id = tasks.s
 export const sectionFields =
   'sections.name AS section_name, sections.slug AS section_slug, sections.color AS section_color, sections.icon AS section_icon';
 
-const publicFields = [...valueFields.filter(field => !['notes','anchor_day','source_path_key'].includes(field)),
-  'id','created_at','updated_at','completed_at','parent_task_id','recurrence_rule','revision'].map(field => 'tasks.' + field);
+const publicFields = [
+  ...valueFields.filter((field) => !['notes', 'anchor_day', 'source_path_key', 'linked_note_id'].includes(field)),
+  'id',
+  'created_at',
+  'updated_at',
+  'completed_at',
+  'parent_task_id',
+  'recurrence_rule',
+  'revision',
+].map((field) => 'tasks.' + field);
 
 // Search matches can occur far beyond the ordinary card preview.
 export function taskColumns(summary = false, search = false) {
-  const body = search ? "substr(tasks.notes,max(1,instr(lower(tasks.notes),lower(?))-35),140)" : "substr(tasks.notes,1,140)";
-  return [...publicFields, ...(summary ? [body + ' AS notes', "length(coalesce(tasks.notes,''))>140 AS truncated"] : ['tasks.notes','tasks.source_path_key'])].join(',');
+  const body = search
+    ? 'substr(tasks.notes,max(1,instr(lower(tasks.notes),lower(?))-35),140)'
+    : 'substr(tasks.notes,1,140)';
+  const source =
+    "CASE WHEN EXISTS (SELECT 1 FROM tasks source WHERE source.id=tasks.linked_note_id AND source.kind='note' AND source.deleted=0) THEN tasks.linked_note_id END AS linked_note_id";
+  return [
+    ...publicFields,
+    source,
+    ...(summary
+      ? [body + ' AS notes', "length(coalesce(tasks.notes,''))>140 AS truncated"]
+      : ['tasks.notes', 'tasks.source_path_key']),
+  ].join(',');
 }

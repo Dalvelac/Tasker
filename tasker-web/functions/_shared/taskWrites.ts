@@ -34,9 +34,10 @@ function checkReturnDate(request: Request, row: TaskValues, old?: TaskRow) {
   if (!row.date || row.date <= day.today) return error('Choose a future return date');
 }
 
-async function validateReferences(db: D1Database, row: TaskValues) {
+async function validateReferences(db: D1Database, row: TaskValues, old?: TaskRow) {
   if (
     row.linked_note_id &&
+    row.linked_note_id !== old?.linked_note_id &&
     !(await db
       .prepare("SELECT id FROM tasks WHERE id=? AND kind='note' AND deleted=0")
       .bind(row.linked_note_id)
@@ -62,7 +63,7 @@ export async function insertTask(context: AppContext, input: Input) {
   } catch (cause) {
     return error((cause as Error).message);
   }
-  const invalid = checkReturnDate(context.request, row) ?? await validateReferences(db, row);
+  const invalid = checkReturnDate(context.request, row) ?? (await validateReferences(db, row));
   if (invalid) return invalid;
   const token = key || crypto.randomUUID();
   const columns = [...valueFields, 'completed_at', 'create_key', 'change_token'];
@@ -127,7 +128,7 @@ export async function changeTask(
       return error((cause as Error).message);
     }
     if (valueFields.every((key) => next[key] === old[key])) return json({ ok: true });
-    const invalid = checkReturnDate(context.request, next, old) ?? await validateReferences(db, next);
+    const invalid = checkReturnDate(context.request, next, old) ?? (await validateReferences(db, next, old));
     if (invalid) return invalid;
   }
   const token = crypto.randomUUID();
@@ -145,9 +146,9 @@ export async function changeTask(
       : db
           .prepare(
             `UPDATE tasks SET ${valueFields.map((key) => key + '=?').join(',')},
-      completed_at=CASE WHEN ?='done' THEN COALESCE(completed_at,CURRENT_TIMESTAMP) END,${stamp} ${guard} RETURNING id`,
+      completed_at=CASE WHEN ?=status THEN completed_at WHEN ?='done' THEN COALESCE(completed_at,CURRENT_TIMESTAMP) END,${stamp} ${guard} RETURNING id`,
           )
-          .bind(...valuesOf(next), next.status, token, ...current);
+          .bind(...valuesOf(next), next.status, next.status, token, ...current);
   const statements = [journal, update];
   const nextDate =
     mode !== 'delete' && next.kind !== 'note' && old.status !== 'done' && next.status === 'done'

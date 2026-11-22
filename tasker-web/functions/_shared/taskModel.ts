@@ -117,8 +117,9 @@ export function taskValues(input: Input, old?: TaskRow): TaskValues {
   let duration = optionalInteger(raw.duration_minutes);
   if (duration === undefined || (duration !== null && duration < 0)) throw new Error('Invalid duration');
   if (start && end) {
-    duration = minutes(end) - minutes(start);
-    if (duration <= 0) throw new Error('End time must be after start time');
+    const span = minutes(end) - minutes(start);
+    if (!old || start !== old.start_time || end !== old.end_time || 'duration_minutes' in input) duration = span;
+    if (span <= 0) throw new Error('End time must be after start time');
   }
   const priority = raw.priority ?? 'normal',
     status = raw.status ?? 'pending',
@@ -161,7 +162,7 @@ export function taskValues(input: Input, old?: TaskRow): TaskValues {
     source_path_key: unchangedLegacy ? null : key,
     section_id: section,
     date,
-    due_date: date,
+    due_date: old && !('date' in input) ? old.due_date : date,
     start_time: start,
     end_time: end,
     duration_minutes: duration,
