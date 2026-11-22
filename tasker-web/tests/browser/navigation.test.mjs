@@ -99,6 +99,8 @@ test('planner startup and title edits use summaries and load vault bodies on dem
   const row = page.locator('[data-task-id="' + task.id + '"]')
   await row.getByRole('button', { name: 'Edit', exact: true }).click()
   await row.getByLabel('Title', { exact: true }).fill('Lightweight revision')
+  assert.ok(requests.some((url) => url.includes('kind=planner') && url.includes('summary=true')))
+  assert.ok(requests.every((url) => !url.includes('kind=vault') && !url.startsWith('/api/stats/')))
   requests.length = 0
   await row.getByRole('button', { name: 'Save details' }).click()
   await row.getByRole('link', { name: 'Lightweight revision' }).waitFor()

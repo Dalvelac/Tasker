@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { api, unavailable, until, visit } from './fixtures.mjs'
 
 test('an interrupted import resumes in the same vault and Markdown files only enter the planner when promoted', async (t) => {
@@ -108,4 +109,26 @@ test('a legacy entry can be classified while retaining its existing task identit
   )
   assert.equal(kept.completed_at, before.completed_at)
   assert.equal(kept.status, 'done')
+})
+
+test('reselecting the same ZIP after reload resumes the interrupted nested vault', async (t) => {
+  const page = await visit(t, '#/obsidian')
+  const archive = fileURLToPath(new URL('./fixtures/Travel.zip', import.meta.url))
+  let count = 0
+  await page.route(/\/api\/tasks$/, (route) => {
+    if (route.request().method() === 'POST' && ++count === 2) return route.fulfill(unavailable)
+    return route.continue()
+  })
+  await page.locator('input[type=file]').first().setInputFiles(archive)
+  await page.getByRole('button', { name: 'Retry remaining files' }).waitFor()
+  const [first] = await api(page, 'tasks?kind=vault&includeDone=true&q=Travel')
+  assert.ok(first)
+  await page.reload()
+  await page.locator('input[type=file]').first().setInputFiles(archive)
+  await page.getByText(/Imported 2 notes into/).waitFor()
+  assert.equal(count, 3)
+  const entries = await api(page, 'tasks?kind=vault&includeDone=true&sectionId=' + first.section_id)
+  assert.deepEqual(entries.map((r) => r.source_path).sort(), ['Lists/Pack.md', 'Maps/Harbor.md'])
+  assert.equal(entries.find((r) => r.source_path.endsWith('Harbor.md')).notes, '    Preserve indentation  \n')
+  assert.equal((await api(page, 'sections')).filter((s) => s.name.startsWith('Travel')).length, 1)
 })

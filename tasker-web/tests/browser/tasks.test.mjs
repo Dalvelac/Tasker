@@ -13,7 +13,11 @@ test('a failed capture preserves its draft and retry key, and a failed refresh c
     const request = route.request()
     if (request.method() === 'POST') {
       keys.push(request.headers()['idempotency-key'])
-      if (keys.length === 1) return route.fulfill(unavailable)
+      if (keys.length === 1) {
+        // D1 commits, but the browser never receives that successful response.
+        assert.ok((await route.fetch()).ok())
+        return route.fulfill(unavailable)
+      }
       failRefresh = true
     } else if (failRefresh) return route.fulfill(unavailable)
     await route.continue()
