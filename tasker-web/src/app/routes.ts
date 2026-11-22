@@ -1,4 +1,5 @@
-import { useEffect, useState, type MouseEvent } from 'react'
+import { flushSync } from 'react-dom'
+import { useLayoutEffect, useState, type MouseEvent } from 'react'
 import { navigationItems, type ViewId } from './navigation'
 
 export function viewUrl(view: ViewId, params: Record<string, string | number | null> = {}) {
@@ -32,19 +33,28 @@ export function commitRoute(hash: string, replace = false) {
 }
 export function useRoute() {
   const [hash, setHash] = useState(() => location.hash)
-  useEffect(() => {
+  useLayoutEffect(() => {
     let index = history.state?.taskerIndex ?? 0
     let currentHash = location.hash
+    let observedHash = currentHash
+    let observedIndex = index
     history.replaceState({ ...history.state, taskerIndex: index }, '')
     function accept() {
       index = history.state.taskerIndex
       currentHash = location.hash
-      setHash(currentHash)
+      observedHash = currentHash
+      observedIndex = index
+      // A second Back can arrive before a deferred render removes the previous editor’s navigation guard.
+      flushSync(() => setHash(currentHash))
     }
     function traverse() {
       // A manually entered hash also makes a same-document history entry.
       if (history.state?.taskerIndex == null) history.replaceState({ taskerIndex: index + 1 }, '')
-      const delta = history.state.taskerIndex - index
+      const targetIndex = history.state.taskerIndex
+      if (location.hash === observedHash && targetIndex === observedIndex) return
+      observedHash = location.hash
+      observedIndex = targetIndex
+      const delta = targetIndex - index
       if (!delta && location.hash === currentHash) return
       beforeNavigation(accept, () => {
         if (delta) history.go(-delta)
@@ -52,9 +62,11 @@ export function useRoute() {
     }
     window.addEventListener('tasker:route', accept)
     window.addEventListener('popstate', traverse)
+    window.addEventListener('hashchange', traverse)
     return () => {
       window.removeEventListener('tasker:route', accept)
       window.removeEventListener('popstate', traverse)
+      window.removeEventListener('hashchange', traverse)
     }
   }, [])
   return readRoute(hash)

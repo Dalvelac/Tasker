@@ -1618,6 +1618,7 @@ kbd {
 .native-dialog::backdrop { background: rgb(3 7 18 / 78%); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .form-error { color: #ffb2b8; overflow-wrap: anywhere; }
+.obsidian-dropzone__message { overflow-wrap: anywhere; }
 .hotkey-status { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .hotkey-status button { max-width:100%; overflow-wrap:anywhere; }
 .sidebar { overflow-y:auto; }

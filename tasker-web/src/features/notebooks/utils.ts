@@ -42,25 +42,28 @@ export function uniquePath(path: string, notes: Task[]) {
   return `${folder}${baseName} ${index}.md`
 }
 
-export function isNotebookSection(section: Section, sectionTasks: Task[]) {
-  return section.description?.includes('Imported from Obsidian') || sectionTasks.some((task) => task.source_path)
-}
-
 export function groupNotes(notes: Task[], sort: NoteSort = 'path') {
   const groups = new Map<string, Task[]>()
   notes.forEach((note) => {
     const path = notePath(note).split('/')
     const group = path.length === 1 ? 'Root' : path.slice(0, -1).join('/')
-    groups.set(group, [...(groups.get(group) ?? []), note])
+    const groupNotes = groups.get(group)
+    if (groupNotes) groupNotes.push(note)
+    else groups.set(group, [note])
   })
 
   return [...groups.entries()]
-    .map(([group, groupNotes]) => [
-      group,
-      [...groupNotes].sort((left, right) => sort === 'updated'
-        ? right.updated_at.localeCompare(left.updated_at)
-        : naturalCompare(notePath(left), notePath(right))),
-    ] as const)
+    .map(
+      ([group, groupNotes]) =>
+        [
+          group,
+          [...groupNotes].sort((left, right) =>
+            sort === 'updated'
+              ? right.updated_at.localeCompare(left.updated_at)
+              : naturalCompare(notePath(left), notePath(right)),
+          ),
+        ] as const,
+    )
     .sort(([left], [right]) => naturalCompare(left, right))
 }
 

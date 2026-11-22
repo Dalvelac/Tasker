@@ -1,184 +1,177 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ObsidianDropzone } from '../components/ObsidianDropzone'
-import { NotebookEditor } from '../features/notebooks/components/NotebookEditor'
+import { NoteRecord } from '../features/notebooks/components/NoteRecord'
 import { NotebookFileBrowser } from '../features/notebooks/components/NotebookFileBrowser'
 import { NotebookSidebar } from '../features/notebooks/components/NotebookSidebar'
-import { fileName, isNotebookSection, naturalCompare, normalizePath, notePath, uniquePath } from '../features/notebooks/utils'
+import { fileName, naturalCompare, normalizePath, uniquePath } from '../features/notebooks/utils'
+import { beforeNavigation, commitRoute, navigate, viewUrl } from '../app/routes'
 import type { ObsidianImport } from '../features/import/obsidian'
 import type { Section } from '../features/sections/types'
 import type { Task, TaskInput } from '../features/tasks/types'
 
-type ObsidianImportViewProps = {
+type Props = {
   sections: Section[]
   tasks: Task[]
-  onCreateObsidianNote: (sectionId: number, path: string, content?: string) => Promise<number>
+  noteId: number | null
+  vaultId: number | null
+  onCreateObsidianNote: (id: number, path: string, body?: string) => Promise<number>
   onCreateObsidianVault: (name: string) => Promise<number>
-  onDeleteTask: (id: number) => Promise<void>
+  onDeleteTask: (id: number, revision?: number) => Promise<void>
+  onCreateTask: (input: TaskInput) => Promise<number>
   onImportObsidianNotes: (input: ObsidianImport) => Promise<string | void>
-  onImportObsidianNotesIntoSection: (sectionId: number, input: ObsidianImport) => Promise<void>
-  onRenameObsidianVault: (sectionId: number, name: string) => Promise<void>
+  onImportObsidianNotesIntoSection: (id: number, input: ObsidianImport) => Promise<void>
+  onRenameObsidianVault: (id: number, name: string) => Promise<void>
   onUpdateTask: (id: number, input: TaskInput) => Promise<void>
 }
-
-export function ObsidianImportView({ sections, tasks, onCreateObsidianNote, onCreateObsidianVault, onDeleteTask, onImportObsidianNotes, onImportObsidianNotesIntoSection, onRenameObsidianVault, onUpdateTask }: ObsidianImportViewProps) {
-  const [activeSectionId, setActiveSectionId] = useState<number | null>(null)
-  const [activeTaskId, setActiveTaskId] = useState<number | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [vaultNameDrafts, setVaultNameDrafts] = useState<Record<number, string>>({})
-  const [notePathDrafts, setNotePathDrafts] = useState<Record<number, string>>({})
-
-  const notesBySection = useMemo(() => {
-    const map = new Map<number, Task[]>()
-    tasks.forEach((task) => {
-      if (task.section_id) map.set(task.section_id, [...(map.get(task.section_id) ?? []), task])
+const unfiled: Section = {
+  id: 0,
+  name: 'Unfiled notes',
+  slug: '',
+  color: '#9CA3AF',
+  icon: null,
+  description: null,
+  pending_count: 0,
+  note_count: 0,
+  is_vault: 1,
+  created_at: '',
+  updated_at: '',
+}
+export function ObsidianImportView(p: Props) {
+  const [newNote, setNewNote] = useState<number | null>(null)
+  const [names, setNames] = useState<Record<number, string>>({})
+  const counts = new Map<number, number>()
+  for (const task of p.tasks) {
+    const id = task.section_id ?? 0
+    counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  const vaults = p.sections
+    .filter((s) => s.is_vault || counts.has(s.id))
+    .sort((a, b) => naturalCompare(a.name, b.name))
+  if (counts.has(0)) vaults.push(unfiled)
+  const requested = p.tasks.find((t) => t.id === p.noteId)
+  const vault = requested
+    ? vaults.find((s) => s.id === (requested.section_id ?? 0))
+    : (vaults.find((s) => s.id === p.vaultId) ?? vaults[0])
+  const notes = vault ? p.tasks.filter((n) => (n.section_id ?? 0) === vault.id) : []
+  const selected = p.noteId ? requested : notes[0]
+  const link = (id: number, note?: number) => viewUrl('obsidian', { vault: id, note: note ?? null })
+  function guarded(action: () => Promise<void>): Promise<void> {
+    return new Promise((resolve, reject) =>
+      beforeNavigation(
+        () => void action().then(resolve, reject),
+        () => reject(new Error('Navigation cancelled')),
+      ),
+    )
+  }
+  function createNote(path: string, content: string) {
+    return guarded(async () => {
+      if (!vault?.id) return
+      const id = await p.onCreateObsidianNote(vault.id, uniquePath(path, notes), content)
+      setNewNote(id)
+      commitRoute(link(vault.id, id))
     })
-    return map
-  }, [tasks])
-  const vaultSections = useMemo(() => sections
-    .filter((section) => isNotebookSection(section, notesBySection.get(section.id) ?? []))
-    .sort((left, right) => naturalCompare(left.name, right.name)), [notesBySection, sections])
-  const activeSection = vaultSections.find((section) => section.id === activeSectionId) ?? vaultSections[0] ?? null
-  const activeNotes = useMemo(() => activeSection ? notesBySection.get(activeSection.id) ?? [] : [], [activeSection, notesBySection])
-  const activeNote = activeNotes.find((note) => note.id === activeTaskId) ?? activeNotes[0] ?? null
-  const isDirty = Boolean(activeNote && isEditing && draft !== (activeNote.notes ?? ''))
-
-  async function saveActiveNote() {
-    if (!activeNote) return
-    await onUpdateTask(activeNote.id, { title: activeNote.title, notes: draft || null, source_path: notePath(activeNote) })
-    setIsEditing(false)
   }
-
-  function consumeFailure(promise: Promise<unknown>) {
-    void promise.catch(() => undefined)
-  }
-
-  useEffect(() => {
-    if (!isEditing || !activeNote) return
-    function saveWithShortcut(event: KeyboardEvent) {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        consumeFailure(saveActiveNote())
-      }
+  async function rename(section: Section) {
+    const name = names[section.id]?.trim()
+    if (!name || name === section.name) return
+    try {
+      await p.onRenameObsidianVault(section.id, name)
+      setNames((current) => {
+        const next = { ...current }
+        delete next[section.id]
+        return next
+      })
+    } catch {
+      /* The action reports the error and keeps the entered name. */
     }
-    window.addEventListener('keydown', saveWithShortcut)
-    return () => window.removeEventListener('keydown', saveWithShortcut)
-  })
-
-  function canDiscardDraft() {
-    return !isDirty || window.confirm('Discard the unsaved changes to this note?')
   }
-
-  function selectNote(note: Task) {
-    if (!canDiscardDraft()) return
-    setActiveTaskId(note.id)
-    setDraft(note.notes ?? '')
-    setIsEditing(false)
-    setIsFullscreen(false)
-  }
-
-  async function createNote(path: string, content = '') {
-    if (!activeSection) return
-    const nextPath = uniquePath(path, activeNotes)
-    const taskId = await onCreateObsidianNote(activeSection.id, nextPath, content)
-    setActiveTaskId(taskId)
-    setDraft(content)
-    setIsEditing(true)
-  }
-
-  async function saveVaultName(section: Section) {
-    const nextName = (vaultNameDrafts[section.id] ?? section.name).trim()
-    if (!nextName || nextName === section.name) return
-    await onRenameObsidianVault(section.id, nextName)
-    setVaultNameDrafts((current) => {
-      const next = { ...current }
-      delete next[section.id]
-      return next
-    })
-  }
-
-  async function saveNotePath() {
-    if (!activeNote) return
-    const nextPath = normalizePath(notePathDrafts[activeNote.id] ?? notePath(activeNote))
-    if (nextPath === notePath(activeNote)) return
-    await onUpdateTask(activeNote.id, { title: fileName(nextPath).replace(/\.md$/i, ''), source_path: uniquePath(nextPath, activeNotes.filter((item) => item.id !== activeNote.id)) })
-    setNotePathDrafts((current) => {
-      const next = { ...current }
-      delete next[activeNote.id]
-      return next
-    })
-  }
-
-  function downloadActiveNote() {
-    if (!activeNote) return
-    const url = URL.createObjectURL(new Blob([activeNote.notes ?? ''], { type: 'text/markdown;charset=utf-8' }))
-    const link = document.createElement('a')
-    link.href = url
-    link.download = fileName(notePath(activeNote))
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <section className="view">
-      <div className="view-header"><div><p className="view-eyebrow">Obsidian</p><h2 className="view-title">Markdown vault</h2><p className="view-description">Browse imported folders, open notes, edit Markdown, and add more files later.</p></div></div>
+      <div className="view-header">
+        <h2 className="view-title">Markdown vault</h2>
+      </div>
       <div className="obsidian-vault">
-        <NotebookSidebar activeSectionId={activeSection?.id ?? null} noteCounts={new Map([...notesBySection].map(([id, notes]) => [id, notes.length]))} sections={vaultSections} onCreate={async (name) => {
-          const sectionId = await onCreateObsidianVault(name)
-          setActiveSectionId(sectionId)
-          setActiveTaskId(null)
-        }} onImport={onImportObsidianNotes} onSelect={(section) => {
-          if (!canDiscardDraft()) return
-          setActiveSectionId(section.id)
-          setActiveTaskId(null)
-          setDraft('')
-          setIsEditing(false)
-          setIsFullscreen(false)
-        }} />
+        <NotebookSidebar
+          activeSectionId={vault?.id ?? null}
+          noteCounts={counts}
+          sections={vaults}
+          onCreate={(name) =>
+            guarded(async () => {
+              const id = await p.onCreateObsidianVault(name)
+              commitRoute(link(id))
+            })
+          }
+          onImport={p.onImportObsidianNotes}
+          onSelect={(s) => navigate(link(s.id))}
+        />
         <div className="obsidian-vault__workspace">
-          {activeSection ? <>
-            <div className="obsidian-vault__toolbar">
-              <div><p className="obsidian-vault__label">Current folder</p><input className="field obsidian-vault__name-input" onBlur={() => consumeFailure(saveVaultName(activeSection))} onChange={(event) => setVaultNameDrafts((current) => ({ ...current, [activeSection.id]: event.target.value }))} onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur()
-              }} value={vaultNameDrafts[activeSection.id] ?? activeSection.name} /></div>
-              <ObsidianDropzone compact buttonLabel="Add files" description="Drop more .md files or a ZIP into this folder." onImport={async (input) => {
-                await onImportObsidianNotesIntoSection(activeSection.id, input)
-                return `Added ${input.notes.length} notes to "${activeSection.name}".`
-              }} title="Add to folder" />
-            </div>
-            <div className="obsidian-vault__panes">
-              <NotebookFileBrowser activeNoteId={activeNote?.id ?? null} notebookName={activeSection.name} notes={activeNotes} isEditing={isEditing} onCreateFolder={async (name) => {
-                await createNote(`${name}/Untitled.md`, `# ${fileName(name)}\n\n`)
-              }} onCreateNote={async (path) => {
-                const normalized = normalizePath(path)
-                await createNote(path, `# ${fileName(normalized).replace(/\.md$/i, '')}\n\n`)
-              }} onEdit={() => {
-                setDraft(activeNote?.notes ?? '')
-                setIsEditing(true)
-              }} onPreview={() => {
-                if (canDiscardDraft()) setIsEditing(false)
-              }} onSelect={selectNote} />
-              <NotebookEditor draft={draft} isDirty={isDirty} isEditing={isEditing} isFullscreen={isFullscreen} note={activeNote} pathDraft={activeNote ? notePathDrafts[activeNote.id] ?? notePath(activeNote) : ''} onCancel={() => {
-                setDraft(activeNote?.notes ?? '')
-                setIsEditing(false)
-              }} onDelete={() => {
-                if (activeNote && window.confirm(`Delete ${fileName(notePath(activeNote))}? This cannot be undone.`)) {
-                  const deletedId = activeNote.id
-                  setActiveTaskId(null)
-                  setDraft('')
-                  setIsEditing(false)
-                  setIsFullscreen(false)
-                  consumeFailure(onDeleteTask(deletedId))
-                }
-              }} onDownload={downloadActiveNote} onDraftChange={setDraft} onEdit={() => {
-                setDraft(activeNote?.notes ?? '')
-                setIsEditing(true)
-              }} onFullscreenToggle={() => setIsFullscreen((value) => !value)} onPathChange={(value) => {
-                if (activeNote) setNotePathDrafts((current) => ({ ...current, [activeNote.id]: value }))
-              }} onPathSave={() => consumeFailure(saveNotePath())} onSave={() => consumeFailure(saveActiveNote())} />
-            </div>
-          </> : <div className="obsidian-vault__empty-note">Import a ZIP or Markdown files to start a vault.</div>}
+          {vault ? (
+            <>
+              <div className="obsidian-vault__toolbar">
+                <label className="form-label">
+                  Current folder
+                  <input
+                    className="field"
+                    value={names[vault.id] ?? vault.name}
+                    readOnly={!vault.id}
+                    onChange={(e) => setNames({ ...names, [vault.id]: e.target.value })}
+                    onBlur={() => void rename(vault)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur()
+                    }}
+                  />
+                </label>
+                {!!vault.id && (
+                  <ObsidianDropzone
+                    key={vault.id}
+                    compact
+                    destinationKey={String(vault.id)}
+                    title="Add to folder"
+                    buttonLabel="Add files"
+                    description="Add Markdown files or a ZIP."
+                    onImport={async (input) => {
+                      await p.onImportObsidianNotesIntoSection(vault.id, input)
+                      return `Saved ${input.notes.length} notes in “${vault.name}”.`
+                    }}
+                  />
+                )}
+              </div>
+              <div className="obsidian-vault__panes">
+                <NotebookFileBrowser
+                  key={vault.id}
+                  sectionId={vault.id || null}
+                  notebookName={vault.name}
+                  activeNoteId={selected?.id ?? null}
+                  notes={notes}
+                  onCreateFolder={(name) => createNote(name + '/Untitled.md', '# ' + fileName(name) + '\n\n')}
+                  onCreateNote={(path) =>
+                    createNote(path, '# ' + fileName(normalizePath(path)).replace(/\.md$/i, '') + '\n\n')
+                  }
+                  onSelect={(note) => navigate(link(vault.id, note.id))}
+                />
+                {selected ? (
+                  <NoteRecord
+                    key={selected.id}
+                    summary={selected}
+                    startEditing={newNote === selected.id}
+                    onEditorOpened={() => setNewNote(null)}
+                    onUpdate={p.onUpdateTask}
+                    onCreateTask={p.onCreateTask}
+                    onDelete={p.onDeleteTask}
+                    onRemoved={() => commitRoute(link(vault.id), true)}
+                  />
+                ) : (
+                  <p className="obsidian-vault__empty-note">
+                    {p.noteId ? 'This note is unavailable.' : 'Select or create a Markdown file.'}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="obsidian-vault__empty-note">
+              Create a folder or import Markdown files to start your vault.
+            </p>
+          )}
         </div>
       </div>
     </section>
