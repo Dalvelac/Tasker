@@ -92,7 +92,7 @@ Tasker is intended to be deployed privately. The source code can remain public, 
 - Update section metadata.
 - Delete sections safely.
 - When a section is deleted, its tasks are not deleted; they are moved back to an unassigned state.
-- Sections expose a pending task count.
+- Sections show actionable task counts and a separate vault entry count.
 
 ### Planning views
 
@@ -106,6 +106,8 @@ Tasker is intended to be deployed privately. The source code can remain public, 
 - Inbox.
 - Unscheduled.
 - Sections.
+- Focus Timer.
+- Markdown vault and Obsidian import.
 - Shortcuts.
 
 ### Statistics
@@ -155,7 +157,7 @@ It is used to see what should be done today, mark tasks as complete, and quickly
 
 Plan My Day is a dedicated planning workflow for deciding what should be worked on today.
 
-The idea is to help move tasks from unscheduled, overdue or pending states into a realistic daily plan.
+Assign an untimed task to Morning, Afternoon or Night without giving it a clock time. Moving a timed block to another period lets you choose new times or keep its estimated duration as untimed work. Postponed tasks return to the planner on their chosen local date.
 
 ### Stacked Planner
 
@@ -211,7 +213,7 @@ The Shortcuts view displays and manages keyboard shortcuts. Shortcuts are stored
 
 ## .md Notes Importing
 
-New feature, allows you to import notes in markdown format, functioning similarly to Obsidian, but on the go, and free :).
+Import Markdown files or a ZIP containing a vault. Interrupted imports can resume in the same folder. The editor keeps drafts for the current tab and offers to save before navigating away. **Create task from note** adds a planner item linked to the source file.
 
 ---
 
@@ -360,13 +362,16 @@ Stores organizational areas.
 
 ### `tasks`
 
-Stores tasks, events and time blocks.
+Stores planner tasks, events, time blocks and vault entries.
 
 | Column | Description |
 | --- | --- |
 | `id` | Primary key. |
 | `title` | Required task title. |
-| `notes` | Optional notes. |
+| `notes` | Optional Markdown body. |
+| `kind` | A planner task, a vault note, or a historical entry awaiting review. |
+| `revision` | Version used to detect conflicting updates. |
+| `linked_note_id` | Source note of a task created in the vault. |
 | `section_id` | Optional section reference. |
 | `date` | Optional scheduled date. |
 | `due_date` | Mirrors the scheduled date for compatibility/querying. |
@@ -381,7 +386,7 @@ Stores tasks, events and time blocks.
 | `recurrence_rule` | Reserved recurrence rule field. |
 | `recurrence_type` | `daily`, `weekly` or `monthly`. |
 | `recurrence_interval` | Recurrence interval. |
-| `recurrence_days` | Reserved for custom recurrence days. |
+| `recurrence_days` | Weekly recurrence weekdays, with Sunday represented by 0. |
 | `recurrence_until` | Optional recurrence end date. |
 | `parent_task_id` | Parent task for generated recurring instances. |
 | `created_at` | Creation timestamp. |
@@ -420,12 +425,15 @@ The frontend helper in `src/lib/api.ts` unwraps `data` and throws an error when 
 | Method | Route | Description |
 | --- | --- | --- |
 | `GET` | `/api/tasks` | List tasks. Supports filters. |
-| `POST` | `/api/tasks` | Create a task. |
+| `GET` | `/api/tasks/:id` | Open the full record and its revision. |
+| `POST` | `/api/tasks` | Create a task. Retry a create with the same `Idempotency-Key`. |
 | `PATCH` | `/api/tasks/:id` | Update a task. |
 | `DELETE` | `/api/tasks/:id` | Delete a task. |
 | `PATCH` | `/api/tasks/:id/toggle` | Complete or reopen a task. |
 
-Supported task filters include:
+Use `If-Match` with the displayed revision for a conditional edit or deletion. A successful mutation can return an `undoToken`. Send it to `POST /api/undo/:token` to restore the previous state. A conflicting revision or a later change to a recurring successor returns HTTP 409.
+
+List requests support `kind=planner` and `kind=vault`, `summary=true` for short excerpts, and `q` for full-text matching. Other filters include
 
 - `sectionId`;
 - `status`;
@@ -456,7 +464,7 @@ The `days` parameter is capped to a safe range. The stats endpoint calculates:
 
 - completed tasks per day;
 - completed tasks today;
-- completed tasks this week;
+- completed tasks in the last seven local calendar days;
 - pending task total;
 - current completion streak;
 - top active section.
@@ -487,13 +495,13 @@ Number keys move between navigation items:
 | `Ctrl + Shift + A` | Quick add new task. |
 | `Ctrl + Shift + P` | Open Plan My Day. |
 | `Ctrl + K` | Open search. |
-| `Ctrl + R` | Configure recurrence for hovered task. |
+| `Ctrl + R` | Configure recurrence for the focused or hovered task. |
 | `Ctrl + Z` | Undo last task action. |
 | `V` | Show/hide completed tasks. |
 
 ### Hovered task shortcuts
 
-These shortcuts apply to the task currently hovered in the UI.
+These shortcuts apply to the focused task or the task under the pointer. Text inputs and open dialogs keep their own keyboard controls.
 
 | Shortcut | Action |
 | --- | --- |
@@ -507,6 +515,8 @@ Shortcuts can be customized in the Shortcuts view and are stored in browser `loc
 ---
 
 ## Local setup
+
+For schema upgrades and the disposable Chromium test suite, see the [local development guide](./tasker-web/README.md).
 
 ### Requirements
 
