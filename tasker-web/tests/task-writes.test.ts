@@ -61,3 +61,13 @@ test('validates schedule values and distinguishes missing or conflicting records
   assert.equal((await h.patch(54321,{title:'Missing'})).status,404)
   assert.equal((await h.remove(54321)).status,404)
 })
+
+test('a returned task can be rescheduled without postponing it again', async t=>{
+  const h=planner(t)
+  const {lastInsertRowid}=h.sql.prepare("INSERT INTO tasks(title,status,date) VALUES('Return','postponed','2000-01-01')").run()
+  const id=Number(lastInsertRowid)
+  assert.equal((await h.patch(id,{date:'2090-01-01'})).status,200)
+  assert.equal(h.row(id).status,'pending')
+  assert.equal((await h.patch(id,{status:'postponed',date:'2000-01-01'})).status,400)
+  assert.equal(h.row(id).date,'2090-01-01')
+})

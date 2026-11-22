@@ -31,5 +31,5 @@ const publicFields = [...valueFields.filter(field => !['notes','anchor_day','sou
 // Search matches can occur far beyond the ordinary card preview.
 export function taskColumns(summary = false, search = false) {
   const body = search ? "substr(tasks.notes,max(1,instr(lower(tasks.notes),lower(?))-35),140)" : "substr(tasks.notes,1,140)";
-  return [...publicFields, ...(summary ? [body + ' AS notes', "length(coalesce(tasks.notes,''))>140 AS truncated"] : ['tasks.notes'])].join(',');
+  return [...publicFields, ...(summary ? [body + ' AS notes', "length(coalesce(tasks.notes,''))>140 AS truncated"] : ['tasks.notes','tasks.source_path_key'])].join(',');
 }

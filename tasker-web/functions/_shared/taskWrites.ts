@@ -116,6 +116,12 @@ export async function changeTask(
   let next: TaskValues = old;
   if (mode !== 'delete') {
     try {
+      // Once the return day arrives, ordinary rescheduling should behave like any other pending task.
+      if (old.status === 'postponed' && old.date && 'date' in input && !('status' in input)) {
+        const day = requestDay(context.request);
+        if (!day) return error('Invalid time zone');
+        if (old.date <= day.today) input = { ...input, status: 'pending' };
+      }
       next = taskValues(input, old);
     } catch (cause) {
       return error((cause as Error).message);
