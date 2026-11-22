@@ -27,6 +27,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit) {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      'X-Tasker-Time-Zone': Intl.DateTimeFormat().resolvedOptions().timeZone,
       ...init?.headers,
     },
   })

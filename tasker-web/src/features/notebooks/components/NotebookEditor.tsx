@@ -16,34 +16,126 @@ interface NotebookEditorProps {
   onEdit: () => void
   onFullscreenToggle: () => void
   onPathChange: (value: string) => void
-  onPathSave: () => void
+  busy: boolean
   onSave: () => void
 }
 
-export function NotebookEditor({ draft, isDirty, isEditing, isFullscreen, note, pathDraft, onCancel, onDelete, onDownload, onDraftChange, onEdit, onFullscreenToggle, onPathChange, onPathSave, onSave }: NotebookEditorProps) {
+export function NotebookEditor({
+  draft,
+  isDirty,
+  isEditing,
+  isFullscreen,
+  note,
+  pathDraft,
+  onCancel,
+  onDelete,
+  onDownload,
+  onDraftChange,
+  onEdit,
+  onFullscreenToggle,
+  onPathChange,
+  busy,
+  onSave,
+}: NotebookEditorProps) {
   return (
     <article className={`obsidian-vault__note ${isFullscreen ? 'is-fullscreen' : ''}`}>
       {note ? (
         <>
           <div className="obsidian-vault__note-header">
             <div>
-              <p className="obsidian-vault__label">{isDirty ? 'Unsaved changes' : 'Saved'} · {noteWordCount(isEditing ? draft : note.notes ?? '')} words</p>
-              <input className="field obsidian-vault__name-input" onBlur={onPathSave} onChange={(event) => onPathChange(event.target.value)} onKeyDown={(event) => {
-                if (event.key === 'Enter') event.currentTarget.blur()
-              }} value={pathDraft} />
+              <p className="obsidian-vault__label">
+                {isDirty ? 'Unsaved changes' : 'Saved'} · {noteWordCount(isEditing ? draft : (note.notes ?? ''))}{' '}
+                words
+              </p>
+              <input
+                className="field obsidian-vault__name-input"
+                aria-label="Note path"
+                readOnly={!isEditing}
+                disabled={busy}
+                onChange={(event) => onPathChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && isEditing) onSave()
+                }}
+                value={pathDraft}
+              />
             </div>
             <div className="inline-actions obsidian-vault__icon-actions">
-              {isEditing ? <><button className="icon-button icon-button--primary" onClick={onSave} title="Save" type="button">✓</button><button className="icon-button" onClick={onCancel} title="Cancel" type="button">×</button></> : <button className="icon-button" onClick={onEdit} title="Edit" type="button">✎</button>}
-              <button aria-label="Download Markdown file" className="icon-button" onClick={onDownload} title="Download .md" type="button">↓</button>
-              <button className="icon-button" onClick={onFullscreenToggle} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} type="button">{isFullscreen ? '↙' : '⛶'}</button>
-              <button className="icon-button icon-button--danger" onClick={onDelete} title={`Delete ${fileName(notePath(note))}`} type="button">🗑</button>
+              {isEditing ? (
+                <>
+                  <button
+                    className="icon-button icon-button--primary"
+                    disabled={busy}
+                    aria-label="Save note"
+                    onClick={onSave}
+                    title="Save"
+                    type="button"
+                  >
+                    ✓
+                  </button>
+                  <button
+                    className="icon-button"
+                    disabled={busy}
+                    aria-label="Close editor"
+                    onClick={onCancel}
+                    title="Cancel"
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </>
+              ) : (
+                <button className="icon-button" aria-label="Edit note" onClick={onEdit} title="Edit" type="button">
+                  ✎
+                </button>
+              )}
+              <button
+                aria-label="Download Markdown file"
+                className="icon-button"
+                onClick={onDownload}
+                title="Download .md"
+                type="button"
+              >
+                ↓
+              </button>
+              <button
+                className="icon-button"
+                aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                onClick={onFullscreenToggle}
+                title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                type="button"
+              >
+                {isFullscreen ? '↙' : '⛶'}
+              </button>
+              <button
+                className="icon-button icon-button--danger"
+                disabled={busy}
+                aria-label="Delete note"
+                onClick={onDelete}
+                title={`Delete ${fileName(notePath(note))}`}
+                type="button"
+              >
+                🗑
+              </button>
             </div>
           </div>
           <div className={`obsidian-vault__note-body ${isEditing ? 'is-editing' : ''}`}>
-            {isEditing ? <textarea className="textarea obsidian-vault__editor" onChange={(event) => onDraftChange(event.target.value)} spellCheck value={draft} /> : <MarkdownPreview value={note.notes ?? ''} />}
+            {isEditing ? (
+              <textarea
+                aria-label="Markdown"
+                disabled={busy}
+                className="textarea obsidian-vault__editor"
+                onChange={(event) => onDraftChange(event.target.value)}
+                spellCheck
+                value={draft}
+              />
+            ) : (
+              <MarkdownPreview value={note.notes ?? ''} />
+            )}
           </div>
         </>
-      ) : <div className="obsidian-vault__empty-note">Select a Markdown file.</div>}
+      ) : (
+        <div className="obsidian-vault__empty-note">Select a Markdown file.</div>
+      )}
     </article>
   )
 }

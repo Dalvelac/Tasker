@@ -32,14 +32,30 @@ function createHarness(tasks: Task[] = [], sections: Section[] = []) {
       return { id, ...input } as Task
     },
   }
-  const actions = createNotebookActionSet({
-    refresh: async () => { refreshes += 1 },
-    sections,
-    setError: (error) => errors.push(error),
-    tasks,
-  }, api)
+  const actions = createNotebookActionSet(
+    {
+      refresh: async () => {
+        refreshes += 1
+      },
+      sections,
+      setError: (error) => errors.push(error),
+      tasks,
+    },
+    api,
+  )
 
-  return { actions, api, createdSections, createdTasks, errors, get refreshes() { return refreshes }, updatedSections, updatedTasks }
+  return {
+    actions,
+    api,
+    createdSections,
+    createdTasks,
+    errors,
+    get refreshes() {
+      return refreshes
+    },
+    updatedSections,
+    updatedTasks,
+  }
 }
 
 test('creates a notebook with a unique name and refreshes once', async () => {
@@ -62,14 +78,23 @@ test('updates matching notes and creates missing notes during import', async () 
     ],
   })
   assert.equal(harness.createdTasks.length, 1)
-  assert.deepEqual(harness.updatedTasks, [[7, {
-    title: 'Existing changed', notes: '# Updated', source_path: 'folder/existing.md',
-  }]])
+  assert.deepEqual(harness.updatedTasks, [
+    [
+      7,
+      {
+        title: 'Existing changed',
+        notes: '# Updated',
+        source_path: 'folder/existing.md',
+      },
+    ],
+  ])
   assert.equal(harness.refreshes, 1)
 })
 
 test('root notes do not overwrite nested notes with the same title', async () => {
-  const harness = createHarness([{ id: 7, section_id: 3, title: 'Meeting', source_path: 'Work/Meeting.md' }] as Task[])
+  const harness = createHarness([
+    { id: 7, section_id: 3, title: 'Meeting', source_path: 'Work/Meeting.md' },
+  ] as Task[])
   await harness.actions.importNotesIntoSection(3, {
     sectionName: 'Vault',
     notes: [{ title: 'Meeting', path: 'Meeting.md', content: '# Root note' }],
@@ -85,21 +110,22 @@ test('imports target the oldest historical duplicate regardless of task ordering
     { id: 12, section_id: 3, title: 'école', source_path: 'école.md' },
   ] as Task[])
   await harness.actions.importNotesIntoSection(3, {
-    sectionName: 'Vault', notes: [{ title: 'école', path: 'école.md', content: 'updated' }],
+    sectionName: 'Vault',
+    notes: [{ title: 'école', path: 'école.md', content: 'updated' }],
   })
   assert.equal(harness.updatedTasks[0][0], 7)
   assert.equal(harness.updatedTasks.length, 1)
   assert.equal(harness.createdTasks.length, 0)
 })
 
-test('legacy notes without paths still match by title', async () => {
+test('ambiguous pathless records are preserved when an import shares their title', async () => {
   const harness = createHarness([{ id: 7, section_id: 3, title: 'Meeting', source_path: null }] as Task[])
   await harness.actions.importNotesIntoSection(3, {
     sectionName: 'Vault',
     notes: [{ title: 'Meeting', path: 'Meeting.md', content: '# Updated' }],
   })
-  assert.equal(harness.createdTasks.length, 0)
-  assert.equal(harness.updatedTasks[0][0], 7)
+  assert.equal(harness.createdTasks.length, 1)
+  assert.equal(harness.updatedTasks.length, 0)
 })
 
 test('deduplicates repeated paths within one import batch', async () => {
@@ -118,7 +144,9 @@ test('deduplicates repeated paths within one import batch', async () => {
 
 test('reports a useful fallback error and refreshes after a failed action', async () => {
   const harness = createHarness()
-  harness.api.createSection = async () => { throw null }
+  harness.api.createSection = async () => {
+    throw null
+  }
   await assert.rejects(harness.actions.createVault('Broken'), /Could not create Markdown folder/)
   assert.deepEqual(harness.errors, [null, 'Could not create Markdown folder'])
   assert.equal(harness.refreshes, 1)

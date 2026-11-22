@@ -8,6 +8,7 @@
 }
 
 html {
+  color-scheme: dark;
   background: var(--bg-main);
 }
 

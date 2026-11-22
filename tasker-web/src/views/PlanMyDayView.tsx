@@ -1,3 +1,4 @@
+import { Dialog } from '../components/Dialog'
 import { useState, type DragEvent } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { TaskCard } from '../components/TaskCard'
@@ -5,7 +6,7 @@ import type { Section } from '../features/sections/types'
 import type { DayPeriod, Task, TaskInput } from '../features/tasks/types'
 import {
   dayPeriods,
-  getPeriodDefaultTimeRange,
+  getEffectiveDayPeriod,
   getPlanCandidates,
   getTasksByPeriod,
   periodLabels,
@@ -27,6 +28,7 @@ type CandidateGroupProps = {
   dropZone?: DropZone
   activeDropZone: DropZone | null
   onAssignPeriod: (task: Task, period: DayPeriod) => Promise<void>
+  onUnschedule: (task: Task) => Promise<void>
   onDropTask: (event: DragEvent<HTMLElement>, zone: DropZone) => Promise<void>
   onDragStart: (event: DragEvent<HTMLElement>, task: Task) => void
   onDragEnd: () => void
@@ -54,14 +56,15 @@ function PeriodButtons({
         <button
           className={`button ${activePeriod === period ? 'button--primary' : ''}`}
           key={period}
-          onClick={() => onAssignPeriod(period)}
+          aria-pressed={period===activePeriod}
+          onClick={() => void onAssignPeriod(period).catch(() => {})}
           type="button"
         >
           {periodLabels[period]}
         </button>
       ))}
       {onClearPeriod && (
-        <button className="button" onClick={onClearPeriod} type="button">
+        <button className="button" onClick={() => void onClearPeriod().catch(() => {})} type="button">
           Unblock
         </button>
       )}
@@ -76,6 +79,7 @@ function CandidateGroup({
   dropZone,
   activeDropZone,
   onAssignPeriod,
+  onUnschedule,
   onDropTask,
   onDragStart,
   onDragEnd,
@@ -93,7 +97,7 @@ function CandidateGroup({
       onDragLeave={dropZone ? onDragLeaveZone : undefined}
       onDragOver={dropZone ? (event) => event.preventDefault() : undefined}
       onDragEnter={dropZone ? () => onDragEnterZone(dropZone) : undefined}
-      onDrop={dropZone ? (event) => onDropTask(event, dropZone) : undefined}
+      onDrop={dropZone ? (event) => void onDropTask(event, dropZone).catch(() => {}) : undefined}
     >
       <div className="day-group__title">
         <span>{title}</span>
@@ -120,6 +124,11 @@ function CandidateGroup({
                 onUpdate={onUpdateTask}
               />
               <PeriodButtons onAssignPeriod={(period) => onAssignPeriod(task, period)} />
+              {task.date && (
+                <button className="button" onClick={() => void onUnschedule(task).catch(() => {})}>
+                  Move to Unscheduled
+                </button>
+              )}
             </div>
           ))
         )}
@@ -128,35 +137,49 @@ function CandidateGroup({
   )
 }
 
-export function PlanMyDayView({
-  sections,
-  tasks,
-  onDeleteTask,
-  onToggleTask,
-  onUpdateTask,
-}: PlanMyDayViewProps) {
+export function PlanMyDayView({ sections, tasks, onDeleteTask, onToggleTask, onUpdateTask }: PlanMyDayViewProps) {
   const today = todayKey()
   const [activeDropZone, setActiveDropZone] = useState<DropZone | null>(null)
   const candidates = getPlanCandidates(tasks, today)
   const periodTasks = getTasksByPeriod(tasks, today)
 
   async function assignPeriod(task: Task, period: DayPeriod) {
-    const { start, end } = getPeriodDefaultTimeRange(period)
-    await onUpdateTask(task.id, {
-      date: today,
-      day_period: period,
-      start_time: start,
-      end_time: end,
-    })
+    if (task.start_time && getEffectiveDayPeriod({ ...task, day_period: null }) !== period) {
+      setMoveError('')
+      setMove({ task, period })
+      return
+    }
+    await onUpdateTask(task.id, { date: today, day_period: period })
   }
 
-  async function clearPeriod(task: Task) {
+  const [move, setMove] = useState<{ task: Task; period: DayPeriod } | null>(null)
+  const [moveError, setMoveError] = useState('')
+  const [moving, setMoving] = useState(false)
+  async function saveMove(input: TaskInput) {
+    if (!move || moving) return
+    setMoving(true)
+    setMoveError('')
+    try {
+      await onUpdateTask(move.task.id, {
+        date: today,
+        day_period: move.period,
+        expectedRevision: move.task.revision,
+        ...input,
+      })
+      setMove(null)
+    } catch (cause) {
+      setMoveError(cause instanceof Error ? cause.message : 'Could not move this task')
+    } finally {
+      setMoving(false)
+    }
+  }
+  async function clearPeriod(task: Task, date: string | null = today) {
     await onUpdateTask(task.id, {
-      date: today,
+      date,
       day_period: null,
       start_time: null,
       end_time: null,
-      duration_minutes: null,
+      type: task.type === 'time_block' ? 'task' : task.type,
     })
   }
 
@@ -187,24 +210,10 @@ export function PlanMyDayView({
       return
     }
 
-    if (zone === 'unscheduled') {
-      await onUpdateTask(taskId, {
-        date: null,
-        day_period: null,
-        start_time: null,
-        end_time: null,
-        duration_minutes: null,
-      })
-      return
-    }
-
-    const { start, end } = getPeriodDefaultTimeRange(zone)
-    await onUpdateTask(taskId, {
-      date: today,
-      day_period: zone,
-      start_time: start,
-      end_time: end,
-    })
+    const task = tasks.find((item) => item.id === taskId)
+    if (!task) return
+    if (zone === 'unscheduled') await clearPeriod(task, null)
+    else await assignPeriod(task, zone)
   }
 
   function renderDraggableTask(task: Task, activePeriod?: DayPeriod) {
@@ -224,6 +233,9 @@ export function PlanMyDayView({
           onToggle={onToggleTask}
           onUpdate={onUpdateTask}
         />
+        <button className="button" onClick={() => void clearPeriod(task, null).catch(() => {})}>
+          Move to Unscheduled
+        </button>
         <PeriodButtons
           activePeriod={activePeriod}
           onAssignPeriod={(nextPeriod) => assignPeriod(task, nextPeriod)}
@@ -243,6 +255,63 @@ export function PlanMyDayView({
         </div>
       </div>
 
+      {move && (
+        <Dialog label="Move timed work" onClose={() => setMove(null)}>
+          {moveError && <p role="alert">{moveError}</p>}
+          <h2>Move to {periodLabels[move.period]}</h2>
+          <form
+            className="form-grid"
+            onSubmit={async (event) => {
+              event.preventDefault()
+              const form = new FormData(event.currentTarget)
+              const start = String(form.get('start')),
+                end = String(form.get('end'))
+              if (getEffectiveDayPeriod({ ...move.task, start_time: start, day_period: null }) !== move.period) {
+                const field = event.currentTarget.elements.namedItem('start') as HTMLInputElement
+                field.setCustomValidity('Choose a start time in ' + periodLabels[move.period])
+                field.reportValidity()
+                return
+              }
+              await saveMove({ start_time: start, end_time: end || null })
+            }}
+          >
+            <label>
+              Start
+              <input
+                required
+                className="field"
+                type="time"
+                name="start"
+                onChange={(e) => e.currentTarget.setCustomValidity('')}
+              />
+            </label>
+            <label>
+              End
+              <input required={move.task.type === 'time_block'} className="field" type="time" name="end" />
+            </label>
+            <button className="button" disabled={moving} type="submit">
+              Save times
+            </button>
+            <button
+              className="button"
+              type="button"
+              disabled={moving}
+              onClick={() =>
+                void saveMove({
+                  start_time: null,
+                  end_time: null,
+                  type: move.task.type === 'time_block' ? 'task' : move.task.type,
+                })
+              }
+            >
+              Move as untimed work
+            </button>
+            <button className="button" type="button" onClick={() => setMove(null)}>
+              Cancel
+            </button>
+          </form>
+        </Dialog>
+      )}
       <div className="plan-layout">
         <div className="card card--pad plan-panel">
           <h3 className="card-title">Candidates</h3>
@@ -252,6 +321,7 @@ export function PlanMyDayView({
             tasks={candidates.overdue}
             title="Overdue"
             onAssignPeriod={assignPeriod}
+            onUnschedule={(task) => clearPeriod(task, null)}
             onDragEnd={handleDragEnd}
             onDragEnterZone={handleDragEnterZone}
             onDragLeaveZone={handleDragLeaveZone}
@@ -268,6 +338,7 @@ export function PlanMyDayView({
             tasks={candidates.unscheduled}
             title="Unscheduled"
             onAssignPeriod={assignPeriod}
+            onUnschedule={(task) => clearPeriod(task, null)}
             onDragEnd={handleDragEnd}
             onDragEnterZone={handleDragEnterZone}
             onDragLeaveZone={handleDragLeaveZone}
@@ -283,6 +354,7 @@ export function PlanMyDayView({
             tasks={candidates.todayUnplanned}
             title="Today unplanned"
             onAssignPeriod={assignPeriod}
+            onUnschedule={(task) => clearPeriod(task, null)}
             onDragEnd={handleDragEnd}
             onDragEnterZone={handleDragEnterZone}
             onDragLeaveZone={handleDragLeaveZone}
@@ -307,7 +379,7 @@ export function PlanMyDayView({
                 onDragEnter={() => handleDragEnterZone(period)}
                 onDragLeave={handleDragLeaveZone}
                 onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => handleDropTask(event, period)}
+                onDrop={(event) => void handleDropTask(event, period).catch(() => {})}
               >
                 <div className="day-group__title">
                   <span>{periodLabels[period]}</span>
@@ -315,8 +387,8 @@ export function PlanMyDayView({
                 </div>
                 <div className="task-list">
                   {periodTasks[period].length === 0 ? (
-                  <EmptyState title="No tasks yet" detail={`Assign tasks to ${periodLabels[period]}.`} />
-                ) : (
+                    <EmptyState title="No tasks yet" detail={`Assign tasks to ${periodLabels[period]}.`} />
+                  ) : (
                     periodTasks[period].map((task) => renderDraggableTask(task, period))
                   )}
                 </div>

@@ -12,6 +12,35 @@ for importing and saving notes. No frontend build is required for this workflow.
 
 Run `npm test`, `npm run lint`, and `npm run build` to verify changes.
 
+### Verifying planner changes
+
+These commands were verified with Node 26.13. The build type-checks both the React application and the Pages Functions. To run the desktop and touch browser tests from this directory:
+
+```bash
+npm ci
+npx playwright install chromium
+npm test
+npm run lint
+npm run test:browser
+```
+
+The browser command builds the production bundle and starts a local Pages server on a free loopback port. It creates and removes its own D1 database in the system temporary directory. Tests cover failed saves, retry and undo, stale edits, vault recovery, keyboard navigation, touch layouts, recurrence and the local clock.
+
+### Upgrading the planner database
+
+For a database already running the schema through 0005, apply 0006 once. Rehearse the upgrade on a copy and keep a database export before upgrading a live instance. Use the new application build with the upgraded database.
+
+```bash
+npx wrangler d1 execute tasker-db --local --file=./migrations/0006_planner_integrity.sql
+npx wrangler d1 execute tasker-db --local --command="PRAGMA foreign_key_check"
+```
+
+A fresh installation initialized by `npm run db:init` already has these tables. Migration 0006 preserves task and note IDs, tag assignments, recurring parents and completion timestamps. Historical installations could retain pointers to previously deleted objects. The upgrade records those original pointers in `migration_0006_unresolved` and keeps the surviving records usable. Check that table when reconciling old data.
+
+Imported Markdown files appear in the vault. Entries from mixed historical imports appear there for review and retain their planner history until classified. Open one and choose **Keep as task** or **Keep as note**. **Create task from note** creates a separate planner task that links back to the file. Deleting a folder moves its files to **Unfiled notes**.
+
+For a rollout smoke test, create and undo a task, complete a recurring item, import two Markdown files, and navigate away with an unsaved note. Verify the same task IDs, the expected successor date, the vault file count, and draft recovery before releasing the build.
+
 ### Upgrading Obsidian path keys
 
 For databases without `tasks.source_path_key`, apply the corrected

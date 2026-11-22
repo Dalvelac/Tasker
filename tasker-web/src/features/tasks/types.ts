@@ -4,7 +4,12 @@ export type TaskType = 'task' | 'event' | 'time_block'
 export type DayPeriod = 'morning' | 'afternoon' | 'night'
 export type RecurrenceType = 'daily' | 'weekly' | 'monthly'
 
+export type RecordKind = 'task' | 'note' | 'review'
 export type Task = {
+  kind: RecordKind
+  revision: number
+  truncated?: number
+  linked_note_id: number | null
   id: number
   title: string
   notes: string | null
@@ -36,6 +41,11 @@ export type Task = {
 }
 
 export type TaskInput = {
+  kind?: RecordKind
+  linked_note_id?: number | null
+  create_only?: boolean
+  expectedRevision?: number
+  requestKey?: string
   title?: string
   notes?: string | null
   source_path?: string | null
@@ -56,6 +66,9 @@ export type TaskInput = {
 }
 
 export type TaskFilters = {
+  kind?: 'planner' | 'vault'
+  summary?: boolean
+  q?: string
   sectionId?: number | null
   status?: TaskStatus
   priority?: TaskPriority

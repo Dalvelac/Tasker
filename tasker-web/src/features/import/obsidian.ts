@@ -4,7 +4,10 @@ export type ImportedMarkdownNote = {
   path: string
 }
 
+export type ImportProgress = { sectionId?: number; sectionName?: string; completed: number[]; requestKey?: string }
 export type ObsidianImport = {
+  progress?: ImportProgress
+  onProgress?: (progress: ImportProgress) => void
   sectionName: string
   notes: ImportedMarkdownNote[]
 }
@@ -152,7 +155,9 @@ async function readZipEntry(buffer: ArrayBuffer, entry: ZipEntry) {
 }
 
 export async function parseObsidianImport(files: File[]): Promise<ObsidianImport> {
-  const usableFiles = files.filter((file) => file.name.toLowerCase().endsWith('.md') || file.name.toLowerCase().endsWith('.zip'))
+  const usableFiles = files.filter(
+    (file) => file.name.toLowerCase().endsWith('.md') || file.name.toLowerCase().endsWith('.zip'),
+  )
 
   if (usableFiles.length === 0) {
     throw new Error('Drop a .zip file or one or more .md files.')

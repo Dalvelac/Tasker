@@ -41,19 +41,23 @@ export function OverdueView({ sections, tasks, onDeleteTask, onToggleTask, onUpd
                   onUpdate={onUpdateTask}
                 />
                 <div className="inline-actions">
-                  <button className="button" onClick={() => onUpdateTask(task.id, { date: todayKey() })} type="button">
+                  <button
+                    className="button"
+                    onClick={() => void onUpdateTask(task.id, { date: todayKey() }).catch(() => {})}
+                    type="button"
+                  >
                     Move today
                   </button>
                   <button
                     className="button"
-                    onClick={() => onUpdateTask(task.id, { date: addDays(todayKey(), 1) })}
+                    onClick={() => void onUpdateTask(task.id, { date: addDays(todayKey(), 1) }).catch(() => {})}
                     type="button"
                   >
                     Move tomorrow
                   </button>
                   <button
                     className="button button--danger"
-                    onClick={() => onUpdateTask(task.id, { status: 'cancelled' })}
+                    onClick={() => void onUpdateTask(task.id, { status: 'cancelled' }).catch(() => {})}
                     type="button"
                   >
                     Cancel

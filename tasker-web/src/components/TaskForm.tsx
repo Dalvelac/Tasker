@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import type { Section } from '../features/sections/types'
 import type { RecurrenceType, TaskInput, TaskPriority } from '../features/tasks/types'
 import { SectionPicker } from './SectionPicker'
@@ -38,10 +38,14 @@ export function TaskForm({
   const [priority, setPriority] = useState<TaskPriority>(defaults.priority ?? 'normal')
   const [recurrenceType, setRecurrenceType] = useState<RecurrenceType | 'none'>(defaults.recurrence_type ?? 'none')
   const [recurrenceInterval, setRecurrenceInterval] = useState(defaults.recurrence_interval?.toString() ?? '1')
-  const [recurrenceDays, setRecurrenceDays] = useState(new Set((defaults.recurrence_days ?? '').split(',').filter(Boolean)))
+  const [recurrenceDays, setRecurrenceDays] = useState(
+    new Set((defaults.recurrence_days ?? '').split(',').filter(Boolean)),
+  )
   const [recurrenceUntil, setRecurrenceUntil] = useState(defaults.recurrence_until ?? '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const [error, setError] = useState('')
+  const lastRequest = useRef({ payload: '', key: '' })
   function toggleWeekday(day: string) {
     setRecurrenceDays((current) => {
       const next = new Set(current)
@@ -65,12 +69,14 @@ export function TaskForm({
       return
     }
 
+    if (isSubmitting) return
+    setError('')
     setIsSubmitting(true)
-    await onSubmit({
+    const input: TaskInput = {
       title: title.trim(),
-      notes: notes.trim() || null,
+      notes: notes || null,
       section_id: sectionId,
-      date: date || null,
+      date: defaults.date ?? (date || null),
       start_time: startTime || null,
       priority,
       status: 'pending',
@@ -79,10 +85,19 @@ export function TaskForm({
       recurrence_interval: recurrenceType === 'none' ? null : Number(recurrenceInterval) || 1,
       recurrence_days: recurrenceType === 'weekly' ? serializedWeekdays() || null : null,
       recurrence_until: recurrenceType === 'none' ? null : recurrenceUntil || null,
-    })
-    setIsSubmitting(false)
-    setTitle('')
-    setNotes('')
+    }
+    const payload = JSON.stringify(input)
+    if (lastRequest.current.payload !== payload) lastRequest.current = { payload, key: crypto.randomUUID() }
+    try {
+      await onSubmit({ ...input, requestKey: lastRequest.current.key })
+      lastRequest.current = { payload: '', key: '' }
+      setTitle('')
+      setNotes('')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save this task')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -92,7 +107,9 @@ export function TaskForm({
         <input
           className="field"
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Capture a task..."
+          required
+          data-initial-focus
+          placeholder="Capture a task…"
           value={title}
         />
       </label>
@@ -133,7 +150,13 @@ export function TaskForm({
       <div className="form-grid form-grid--columns">
         <label className="form-label">
           Date
-          <input className="field" onChange={(event) => setDate(event.target.value)} type="date" value={date ?? ''} />
+          <input
+            className="field"
+            onChange={(event) => setDate(event.target.value)}
+            type="date"
+            readOnly={Boolean(defaults.date)}
+            value={defaults.date ?? date}
+          />
         </label>
         <label className="form-label">
           Start
@@ -181,6 +204,7 @@ export function TaskForm({
                   <button
                     className={`weekday-button ${recurrenceDays.has(day.value) ? 'is-selected' : ''}`}
                     key={day.value}
+                      aria-pressed={recurrenceDays.has(day.value)}
                     onClick={() => toggleWeekday(day.value)}
                     type="button"
                   >
@@ -203,6 +227,11 @@ export function TaskForm({
         </div>
       )}
 
+      {error && (
+        <p role="alert" className="form-error">
+          {error}
+        </p>
+      )}
       <button className="button button--primary" disabled={isSubmitting} type="submit">
         {isSubmitting ? 'Saving...' : submitLabel}
       </button>

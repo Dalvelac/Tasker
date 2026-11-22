@@ -12,33 +12,71 @@ interface NotebookSidebarProps {
   onSelect: (section: Section) => void
 }
 
-export function NotebookSidebar({ activeSectionId, noteCounts, sections, onCreate, onImport, onSelect }: NotebookSidebarProps) {
+export function NotebookSidebar({
+  activeSectionId,
+  noteCounts,
+  sections,
+  onCreate,
+  onImport,
+  onSelect,
+}: NotebookSidebarProps) {
   const [name, setName] = useState('')
 
   async function createNotebook() {
     const nextName = name.trim()
     if (!nextName) return
-    await onCreate(nextName)
-    setName('')
+    try {
+      await onCreate(nextName)
+      setName('')
+    } catch {
+      /* Keep the name for retry or a cancelled navigation. */
+    }
   }
 
   return (
     <aside className="obsidian-vault__folders" aria-label="Markdown folders">
-      <ObsidianDropzone compact buttonLabel="New folder" description="Drop a ZIP or .md files to create a folder." onImport={onImport} title="Import" />
+      <ObsidianDropzone
+        compact
+        buttonLabel="New folder"
+        description="Drop a ZIP or .md files to create a folder."
+        onImport={onImport}
+        title="Import"
+      />
       <div className="obsidian-vault__quick-create">
-        <input className="field" onChange={(event) => setName(event.target.value)} onKeyDown={(event) => {
-          if (event.key === 'Enter') void createNotebook()
-        }} placeholder="New import name" value={name} />
-        <button className="button button--primary" onClick={createNotebook} type="button">Create</button>
+        <input
+          aria-label="New vault name"
+          className="field"
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') void createNotebook()
+          }}
+          placeholder="New import name"
+          value={name}
+        />
+        <button className="button button--primary" onClick={createNotebook} type="button">
+          Create
+        </button>
       </div>
       <div className="obsidian-vault__section-list">
         <p className="obsidian-vault__label">Folders</p>
-        {sections.length === 0 ? <p className="obsidian-vault__empty">No Markdown folders yet.</p> : sections.map((section) => (
-          <button className={`obsidian-vault__folder ${activeSectionId === section.id ? 'is-active' : ''}`} key={section.id} onClick={() => onSelect(section)} type="button">
-            <span className="obsidian-vault__folder-accent" style={{ background: section.color }} />
-            <span><strong>{section.name}</strong><small>{noteCounts.get(section.id) ?? 0} notes</small></span>
-          </button>
-        ))}
+        {sections.length === 0 ? (
+          <p className="obsidian-vault__empty">No Markdown folders yet.</p>
+        ) : (
+          sections.map((section) => (
+            <button
+              className={`obsidian-vault__folder ${activeSectionId === section.id ? 'is-active' : ''}`}
+              key={section.id}
+              onClick={() => onSelect(section)}
+              type="button"
+            >
+              <span className="obsidian-vault__folder-accent" style={{ background: section.color }} />
+              <span>
+                <strong>{section.name}</strong>
+                <small>{noteCounts.get(section.id) ?? 0} notes</small>
+              </span>
+            </button>
+          ))
+        )}
       </div>
     </aside>
   )

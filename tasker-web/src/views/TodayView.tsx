@@ -1,3 +1,4 @@
+import { nextTimedTask, getEffectiveDayPeriod } from '../features/tasks/utils'
 import { EmptyState } from '../components/EmptyState'
 import { TaskCard } from '../components/TaskCard'
 import { TaskForm } from '../components/TaskForm'
@@ -21,6 +22,7 @@ type TodayViewProps = {
   onDeleteTask: (id: number) => Promise<void>
   onToggleTask: (id: number) => Promise<void>
   onUpdateTask: (id: number, input: TaskInput) => Promise<void>
+  showCompleted?: boolean
   onOpenPlan: () => void
 }
 
@@ -36,7 +38,7 @@ function getCurrentBlock(tasks: Task[]) {
     const startMinutes = startHour * 60 + startMinute
     const endMinutes = endHour * 60 + endMinute
 
-    return currentMinutes >= startMinutes && currentMinutes <= endMinutes
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes
   })
 }
 
@@ -47,6 +49,7 @@ export function TodayView({
   onDeleteTask,
   onToggleTask,
   onUpdateTask,
+  showCompleted = true,
   onOpenPlan,
 }: TodayViewProps) {
   const today = todayKey()
@@ -54,12 +57,17 @@ export function TodayView({
   const overdue = sortTasks(tasks.filter((task) => isBeforeToday(task.date) && task.status !== 'done'))
   const urgent = sortTasks(tasks.filter((task) => task.priority === 'urgent' && task.status !== 'done'))
   const completed = todayTasks.filter((task) => task.status === 'done').length
-  const nextTask = todayTasks.find((task) => task.status !== 'done' && task.start_time)
+  const nextTask = nextTimedTask(todayTasks)
   const currentBlock = getCurrentBlock(todayTasks)
-  const timelineTasks = getTimelineTasks(todayTasks)
-  const periodTasks = getTasksByPeriod(tasks, today)
+  const timelineTasks = getTimelineTasks(
+    showCompleted ? todayTasks : todayTasks.filter((task) => task.status !== 'done'),
+  )
+  const periodTasks = getTasksByPeriod(
+    showCompleted ? tasks : tasks.filter((task) => task.status !== 'done'),
+    today,
+  )
   const unplannedToday = sortTasks(
-    todayTasks.filter((task) => task.day_period === null && task.status !== 'done'),
+    todayTasks.filter((task) => getEffectiveDayPeriod(task) === null && (showCompleted || task.status !== 'done')),
   )
   const activeSections = sections
     .map((section) => ({
@@ -75,7 +83,8 @@ export function TodayView({
           <p className="view-eyebrow">{formatDateKey(today)}</p>
           <h2 className="view-title">Today Command Center</h2>
           <p className="view-description">
-            Progress {completed}/{todayTasks.length}. Next: {nextTask ? `${nextTask.start_time} ${nextTask.title}` : 'none'}
+            Progress {completed}/{todayTasks.length}. Next:{' '}
+            {nextTask ? `${nextTask.start_time} ${nextTask.title}` : 'none'}
           </p>
         </div>
         <button className="button button--primary" onClick={onOpenPlan} type="button">
@@ -109,7 +118,9 @@ export function TodayView({
           <h3 className="card-title">Current block</h3>
           {currentBlock ? (
             <div className="command-focus">
-              <span className="pill">{currentBlock.start_time} to {currentBlock.end_time}</span>
+              <span className="pill">
+                {currentBlock.start_time} to {currentBlock.end_time}
+              </span>
               <strong>{currentBlock.title}</strong>
               <span>{currentBlock.section_name ?? 'Inbox'}</span>
             </div>
@@ -163,16 +174,22 @@ export function TodayView({
                   const duration = formatDuration(getTaskDurationMinutes(task))
 
                   return (
-                    <div className={`timeline-item ${task.type === 'time_block' ? 'is-time-block' : ''}`} key={task.id}>
+                    <div
+                      className={`timeline-item ${task.type === 'time_block' ? 'is-time-block' : ''}`}
+                      key={task.id}
+                    >
                       <div className="timeline-item__time">
                         <strong>{task.start_time}</strong>
                         <span>{task.end_time ?? duration ?? ''}</span>
                       </div>
                       <div className="timeline-item__body">
-                        <span className="timeline-item__accent" style={{ background: task.section_color ?? '#9CA3AF' }} />
+                        <span
+                          className="timeline-item__accent"
+                          style={{ background: task.section_color ?? '#9CA3AF' }}
+                        />
                         <div>
                           <strong>{task.title}</strong>
-                          <span>{task.type === 'time_block' ? 'block' : task.section_name ?? 'Inbox'}</span>
+                          <span>{task.type === 'time_block' ? 'block' : (task.section_name ?? 'Inbox')}</span>
                         </div>
                       </div>
                     </div>
@@ -274,7 +291,9 @@ export function TodayView({
                 onUpdate={onUpdateTask}
               />
             ))}
-            {overdue.length === 0 && <EmptyState title="No overdue tasks" detail="Nice. Nothing is trailing behind." />}
+            {overdue.length === 0 && (
+              <EmptyState title="No overdue tasks" detail="Nice. Nothing is trailing behind." />
+            )}
           </div>
         </aside>
       </div>

@@ -24,7 +24,7 @@ export function StackedPlannerView({
   const [sectionId, setSectionId] = useState<number | null>(null)
   const [showDone, setShowDone] = useState(false)
   const filtered = tasks.filter((task) => {
-    if (sectionId && task.section_id !== sectionId) return false
+    if (sectionId !== null && (task.section_id ?? -1) !== sectionId) return false
     if (!showDone && task.status === 'done') return false
     return Boolean(task.date)
   })
@@ -39,7 +39,7 @@ export function StackedPlannerView({
           <p className="view-description">Grouped by day, ordered by time and priority.</p>
         </div>
         <div className="inline-actions">
-          <SectionPicker sections={sections} value={sectionId} onChange={setSectionId} />
+          <SectionPicker filter sections={sections} value={sectionId} onChange={setSectionId} />
           <button className="button" onClick={() => setShowDone((value) => !value)} type="button">
             {showDone ? 'Hide done' : 'Show done'}
           </button>

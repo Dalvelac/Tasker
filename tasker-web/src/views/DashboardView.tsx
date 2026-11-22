@@ -1,3 +1,4 @@
+import { nextTimedTask } from '../features/tasks/utils'
 import { EmptyState } from '../components/EmptyState'
 import { ProductivityHeatmap } from '../components/ProductivityHeatmap'
 import { TaskCard } from '../components/TaskCard'
@@ -15,6 +16,7 @@ type DashboardViewProps = {
   onDeleteTask: (id: number) => Promise<void>
   onToggleTask: (id: number) => Promise<void>
   onUpdateTask: (id: number, input: TaskInput) => Promise<void>
+  statsError: boolean
   stats: StatsOverview | null
 }
 
@@ -26,14 +28,15 @@ export function DashboardView({
   onToggleTask,
   onUpdateTask,
   stats,
+  statsError,
 }: DashboardViewProps) {
   const today = todayKey()
   const todayTasks = sortTasks(tasks.filter((task) => task.date === today))
-  const completedToday = todayTasks.filter((task) => task.status === 'done').length
-  const inboxCount = tasks.filter((task) => task.section_id === null && task.status !== 'done').length
-  const unscheduledCount = tasks.filter((task) => task.date === null && task.status !== 'done').length
+  const looseCount = tasks.filter(
+    (task) => (task.section_id === null || task.date === null) && task.status !== 'done',
+  ).length
   const urgentCount = tasks.filter((task) => task.priority === 'urgent' && task.status !== 'done').length
-  const nextTask = todayTasks.find((task) => task.status !== 'done' && task.start_time)
+  const nextTask = nextTimedTask(todayTasks)
   const pendingSections = stats?.sections.filter((section) => section.pending > 0).slice(0, 6) ?? []
 
   return (
@@ -48,19 +51,21 @@ export function DashboardView({
 
       <div className="stat-grid">
         <div className="card stat">
-          <div className="stat__value">{stats?.totals.completed_today ?? completedToday}</div>
+          <div className="stat__value">{stats?.totals.completed_today ?? '—'}</div>
           <div className="stat__label">completed today</div>
         </div>
         <div className="card stat">
-          <div className="stat__value">{stats?.totals.completed_week ?? 0}</div>
-          <div className="stat__label">completed this week</div>
+          <div className="stat__value">{stats?.totals.completed_week ?? '—'}</div>
+          <div className="stat__label">completed in the last 7 days</div>
         </div>
         <div className="card stat">
-          <div className="stat__value">{stats?.totals.current_streak ?? 0}</div>
+          <div className="stat__value">{stats?.totals.current_streak ?? '—'}</div>
           <div className="stat__label">day streak</div>
         </div>
         <div className="card stat">
-          <div className="stat__value">{stats?.totals.pending_total ?? tasks.filter((task) => task.status !== 'done').length}</div>
+          <div className="stat__value">
+            {stats?.totals.pending_total ?? tasks.filter((task) => task.status !== 'done').length}
+          </div>
           <div className="stat__label">pending total</div>
         </div>
       </div>
@@ -73,7 +78,12 @@ export function DashboardView({
         {stats ? (
           <ProductivityHeatmap days={stats.heatmap} from={stats.range.from} to={stats.range.to} />
         ) : (
-          <EmptyState title="Stats loading" detail="Completion history will appear here." />
+          <EmptyState
+            title={statsError ? 'Statistics unavailable' : 'Loading statistics…'}
+            detail={
+              statsError ? 'Retry statistics to see completion history.' : 'Completion history will appear here.'
+            }
+          />
         )}
       </div>
 
@@ -108,7 +118,9 @@ export function DashboardView({
           <div className="task-list">
             <div className="mini-task">
               <span style={{ background: stats?.totals.top_section?.section_color ?? '#9CA3AF' }} />
-              <strong>{stats?.totals.top_section?.section_name ?? 'Inbox'}</strong>
+              <strong>
+                {stats?.totals.top_section ? (stats.totals.top_section.section_name ?? 'Inbox') : '—'}
+              </strong>
               <em>top section</em>
             </div>
             <div className="mini-task">
@@ -118,7 +130,7 @@ export function DashboardView({
             </div>
             <div className="mini-task">
               <span style={{ background: '#9CA3AF' }} />
-              <strong>{inboxCount + unscheduledCount}</strong>
+              <strong>{looseCount}</strong>
               <em>loose tasks</em>
             </div>
           </div>
@@ -127,7 +139,9 @@ export function DashboardView({
             Pending by section
           </h3>
           <div className="task-list">
-            {pendingSections.length === 0 ? (
+            {!stats ? (
+              <p>{statsError ? 'Statistics unavailable.' : 'Loading statistics…'}</p>
+            ) : pendingSections.length === 0 ? (
               <EmptyState title="No section pressure" detail="No pending tasks grouped by section." />
             ) : (
               pendingSections.map((section) => (

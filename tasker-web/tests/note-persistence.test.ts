@@ -7,6 +7,7 @@ import { notePathKey } from '../shared/notePathKey.ts'
 const { onRequestPost } = loadFunction<typeof import('../functions/api/tasks/index.ts')>('functions/api/tasks/index.ts')
 const { onRequestPatch } = loadFunction<typeof import('../functions/api/tasks/[id]/index.ts')>('functions/api/tasks/[id]/index.ts')
 const migration4 = readProjectFile('migrations/0004_obsidian_path_key.sql')
+const integrity = readProjectFile('migrations/0006_planner_integrity.sql')
 const repair = readProjectFile('migrations/0005_repair_obsidian_path_keys.sql')
 
 function setup(t: { after: (fn: () => void) => void }, legacy = false) {
@@ -83,6 +84,7 @@ test('corrected migration preserves duplicate content and concurrent imports reu
   const before = h.rows()
   h.db.exec(migration4)
   assert.deepEqual(h.rows(), before)
+  h.db.exec(integrity)
   const responses = await Promise.all([h.post('école.md', 'imported'), h.post('École.md', 'imported')])
   for (const response of responses) {
     assert.equal(response.ok, true)
@@ -108,6 +110,7 @@ test('repair fixes already-applied ASCII-only backfill without changing note con
   h.db.exec(repair)
   h.db.exec(repair)
   assert.deepEqual(h.rows(), before)
+  h.db.exec(integrity)
   assert.equal((await (await h.post('école.md')).json()).data.id, id)
   assert.equal(h.rows().length, 1)
 })
@@ -122,6 +125,7 @@ test('repair recovers a partially applied migration with duplicates and keeps al
   const before = h.rows()
   h.db.exec(repair)
   assert.deepEqual(h.rows(), before)
+  h.db.exec(integrity)
   const responses = await Promise.all([h.post('A.md'), h.post('a.md')])
   assert.ok(responses.every((response) => response.ok))
   assert.equal(h.rows().length, 2)
@@ -133,6 +137,7 @@ test('renaming a migrated note keeps the key in sync and protects occupied paths
   const moving = h.seed('Old.md')
   const occupied = h.seed('École.md', 'destination text')
   h.db.exec(migration4)
+  h.db.exec(integrity)
   assert.equal((await h.patch(moving, { source_path: 'école.md', notes: 'must not overwrite' })).status, 409)
   assert.equal(h.db.prepare('SELECT notes FROM tasks WHERE id = ?').get(occupied)?.notes, 'destination text')
   assert.equal(h.db.prepare('SELECT source_path FROM tasks WHERE id = ?').get(moving)?.source_path, 'Old.md')

@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react'
-import { navigationItems } from '../app/navigation'
+import { navigationShortcuts } from '../app/navigation'
 import {
   defaultShortcuts,
   getShortcutLabel,
@@ -11,7 +11,7 @@ import {
 type ShortcutsViewProps = {
   listeningAction: ShortcutAction | null
   shortcuts: ShortcutMap
-  onListen: (action: ShortcutAction) => void
+  onListen: (action: ShortcutAction | null) => void
   onReset: () => void
   onShortcutChange: (action: ShortcutAction, keys: string) => void
 }
@@ -27,6 +27,11 @@ export function ShortcutsView({
     if (listeningAction !== action) return
 
     event.preventDefault()
+    event.stopPropagation()
+    if (event.key === 'Escape') {
+      onListen(null)
+      return
+    }
     const nextShortcut = getShortcutLabel(event)
     if (nextShortcut) onShortcutChange(action, nextShortcut)
   }
@@ -37,7 +42,9 @@ export function ShortcutsView({
         <div>
           <p className="view-eyebrow">Keyboard control</p>
           <h2 className="view-title">Shortcuts</h2>
-          <p className="view-description">Click a shortcut, press a new combination, and Tasker will remember it.</p>
+          <p className="view-description">
+            Click a shortcut, press a new combination, and Tasker will remember it.
+          </p>
         </div>
         <button className="button" onClick={onReset} type="button">
           Reset defaults
@@ -58,10 +65,12 @@ export function ShortcutsView({
         <section className="card card--pad shortcut-group">
           <h3 className="card-title">Navigation</h3>
           <div className="shortcut-list">
-            {navigationItems.map((item, index) => (
+            {navigationShortcuts.map(({ item, key }) => (
               <div className="shortcut-row" key={item.id}>
-                <kbd>{String((index + 1) % 10 || 0)}</kbd>
-                <span>{item.icon} {item.label}</span>
+                <kbd>{key}</kbd>
+                <span>
+                  {item.icon} {item.label}
+                </span>
               </div>
             ))}
           </div>
@@ -82,7 +91,7 @@ function ShortcutSection({
   listeningAction: ShortcutAction | null
   shortcuts: ShortcutMap
   onCapture: (event: KeyboardEvent<HTMLButtonElement>, action: ShortcutAction) => void
-  onListen: (action: ShortcutAction) => void
+  onListen: (action: ShortcutAction | null) => void
 }) {
   return (
     <section className="card card--pad shortcut-group">
@@ -96,6 +105,10 @@ function ShortcutSection({
                 listeningAction === shortcut.action ? 'is-listening' : ''
               }`}
               key={shortcut.action}
+              aria-pressed={listeningAction === shortcut.action}
+              onBlur={() => {
+                if (listeningAction === shortcut.action) onListen(null)
+              }}
               onClick={() => onListen(shortcut.action)}
               onKeyDown={(event) => onCapture(event, shortcut.action)}
               type="button"
@@ -105,9 +118,7 @@ function ShortcutSection({
             </button>
           ))}
       </div>
-      {group === 'Global' && (
-        <p className="view-description">Default undo shortcut: {defaultShortcuts.undo}</p>
-      )}
+      {group === 'Global' && <p className="view-description">Default undo shortcut: {defaultShortcuts.undo}</p>}
     </section>
   )
 }
