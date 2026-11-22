@@ -1,3 +1,6 @@
+import { effectiveStatus } from '../../shared/planner'
+import { todayKey } from '../lib/dates'
+import { viewUrl, followLink } from '../app/routes'
 import { useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { SectionPicker } from '../components/SectionPicker'
@@ -8,6 +11,9 @@ import { sortTasks } from '../features/tasks/utils'
 import { addMonths, formatDateKey, formatMonthLabel, getMonthCalendarDays, monthKey } from '../lib/dates'
 
 type CalendarViewProps = {
+  selectedDate: string | null
+  month: string
+  onSelect: (date: string | null, month: string) => void
   sections: Section[]
   tasks: Task[]
   onCreateTask: (input: TaskInput) => Promise<void>
@@ -16,9 +22,7 @@ type CalendarViewProps = {
 const statuses: Array<'all' | TaskStatus> = ['all', 'pending', 'in_progress', 'done', 'cancelled', 'postponed']
 const priorities: Array<'all' | TaskPriority> = ['all', 'low', 'normal', 'high', 'urgent']
 
-export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProps) {
-  const [month, setMonth] = useState(monthKey())
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+export function CalendarView({ sections, tasks, onCreateTask, selectedDate, month, onSelect }: CalendarViewProps) {
   const [sectionId, setSectionId] = useState<number | null>(null)
   const [status, setStatus] = useState<'all' | TaskStatus>('all')
   const [priority, setPriority] = useState<'all' | TaskPriority>('all')
@@ -26,14 +30,12 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
   const currentMonth = monthKey()
   const visibleTasks = tasks.filter((task) => {
     if (!task.date) return false
-    if (sectionId && task.section_id !== sectionId) return false
-    if (status !== 'all' && task.status !== status) return false
+    if (sectionId !== null && (task.section_id ?? -1) !== sectionId) return false
+    if (status !== 'all' && effectiveStatus(task, todayKey()) !== status) return false
     if (priority !== 'all' && task.priority !== priority) return false
     return true
   })
-  const selectedTasks = selectedDate
-    ? sortTasks(visibleTasks.filter((task) => task.date === selectedDate))
-    : []
+  const selectedTasks = selectedDate ? sortTasks(visibleTasks.filter((task) => task.date === selectedDate)) : []
 
   return (
     <section className="view">
@@ -52,21 +54,26 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
           <p className="calendar-monthbar__meta">Current month: {formatMonthLabel(currentMonth)}</p>
         </div>
         <div className="inline-actions">
-          <button className="button" onClick={() => setMonth(addMonths(month, -1))} type="button">
+          <button className="button" onClick={() => onSelect(null, addMonths(month, -1))} type="button">
             Previous
           </button>
-          <button className="button button--primary" onClick={() => setMonth(currentMonth)} type="button">
+          <button className="button button--primary" onClick={() => onSelect(null, currentMonth)} type="button">
             Current month
           </button>
-          <button className="button" onClick={() => setMonth(addMonths(month, 1))} type="button">
+          <button className="button" onClick={() => onSelect(null, addMonths(month, 1))} type="button">
             Next
           </button>
         </div>
       </div>
 
       <div className="calendar-toolbar card card--pad">
-        <SectionPicker sections={sections} value={sectionId} onChange={setSectionId} />
-        <select className="select" onChange={(event) => setStatus(event.target.value as TaskStatus | 'all')} value={status}>
+        <SectionPicker filter sections={sections} value={sectionId} onChange={setSectionId} />
+        <select
+          aria-label="Filter by status"
+          className="select"
+          onChange={(event) => setStatus(event.target.value as TaskStatus | 'all')}
+          value={status}
+        >
           {statuses.map((item) => (
             <option key={item} value={item}>
               {item === 'all' ? 'all statuses' : item}
@@ -74,6 +81,7 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
           ))}
         </select>
         <select
+          aria-label="Filter by priority"
           className="select"
           onChange={(event) => setPriority(event.target.value as TaskPriority | 'all')}
           value={priority}
@@ -102,15 +110,20 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
                   className={`calendar-day ${day.isCurrentMonth ? '' : 'is-muted'} ${day.isToday ? 'is-today' : ''} ${
                     selectedDate === day.key ? 'is-selected' : ''
                   }`}
+                  aria-label={day.key}
+                  aria-pressed={selectedDate === day.key}
                   key={day.key}
-                  onClick={() => setSelectedDate(day.key)}
+                  onClick={() => onSelect(day.key, day.key.slice(0, 7))}
                   type="button"
                 >
                   <span className="calendar-day__number">{day.day}</span>
                   <span className="calendar-day__count">{dayTasks.length}</span>
                   <span className="calendar-day__tasks">
                     {dayTasks.slice(0, 3).map((task) => (
-                      <span className={`calendar-task ${task.type === 'time_block' ? 'is-time-block' : ''}`} key={task.id}>
+                      <span
+                        className={`calendar-task ${task.type === 'time_block' ? 'is-time-block' : ''}`}
+                        key={task.id}
+                      >
                         <span style={{ background: task.section_color ?? '#9CA3AF' }} />
                         {task.type === 'time_block' ? 'block ' : ''}
                         {task.start_time ? `${task.start_time} ` : ''}
@@ -126,7 +139,9 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
         </div>
 
         <aside className="card card--pad">
-          <h3 className="card-title">{selectedDate ? `Create on ${formatDateKey(selectedDate)}` : 'Select a day'}</h3>
+          <h3 className="card-title">
+            {selectedDate ? `Create on ${formatDateKey(selectedDate)}` : 'Select a day'}
+          </h3>
           {selectedDate ? (
             <TaskForm
               compact
@@ -149,7 +164,14 @@ export function CalendarView({ sections, tasks, onCreateTask }: CalendarViewProp
               selectedTasks.map((task) => (
                 <div className={`mini-task ${task.type === 'time_block' ? 'is-time-block' : ''}`} key={task.id}>
                   <span style={{ background: task.section_color ?? '#9CA3AF' }} />
-                  <strong>{task.title}</strong>
+                  <a
+                    href={viewUrl('calendar', { date: selectedDate, task: task.id })}
+                    onClick={(event) =>
+                      followLink(event, viewUrl('calendar', { date: selectedDate, task: task.id }))
+                    }
+                  >
+                    {task.title}
+                  </a>
                   <em>
                     {task.type === 'time_block' ? 'block ' : ''}
                     {task.start_time ?? 'no time'}
