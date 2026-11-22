@@ -129,6 +129,7 @@ export function RecurrenceModal({ task, onClose, onUpdateTask }: RecurrenceModal
                     <button
                       className={`weekday-button ${recurrenceDays.has(day.value) ? 'is-selected' : ''}`}
                       key={day.value}
+                      aria-pressed={recurrenceDays.has(day.value)}
                       onClick={() => toggleWeekday(day.value)}
                       type="button"
                     >

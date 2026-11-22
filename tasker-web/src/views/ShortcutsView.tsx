@@ -11,7 +11,7 @@ import {
 type ShortcutsViewProps = {
   listeningAction: ShortcutAction | null
   shortcuts: ShortcutMap
-  onListen: (action: ShortcutAction) => void
+  onListen: (action: ShortcutAction | null) => void
   onReset: () => void
   onShortcutChange: (action: ShortcutAction, keys: string) => void
 }
@@ -28,6 +28,7 @@ export function ShortcutsView({
 
     event.preventDefault()
     event.stopPropagation()
+    if(event.key==='Escape'){onListen(null);return}
     const nextShortcut = getShortcutLabel(event)
     if (nextShortcut) onShortcutChange(action, nextShortcut)
   }
@@ -87,7 +88,7 @@ function ShortcutSection({
   listeningAction: ShortcutAction | null
   shortcuts: ShortcutMap
   onCapture: (event: KeyboardEvent<HTMLButtonElement>, action: ShortcutAction) => void
-  onListen: (action: ShortcutAction) => void
+  onListen: (action: ShortcutAction | null) => void
 }) {
   return (
     <section className="card card--pad shortcut-group">
@@ -101,6 +102,8 @@ function ShortcutSection({
                 listeningAction === shortcut.action ? 'is-listening' : ''
               }`}
               key={shortcut.action}
+              aria-pressed={listeningAction===shortcut.action}
+              onBlur={()=>{if(listeningAction===shortcut.action)onListen(null)}}
               onClick={() => onListen(shortcut.action)}
               onKeyDown={(event) => onCapture(event, shortcut.action)}
               type="button"

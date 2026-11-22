@@ -25,13 +25,13 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   { action: 'quickAdd', description: 'Quick add new task', group: 'Global' },
   { action: 'planMyDay', description: 'Open Plan My Day', group: 'Global' },
   { action: 'search', description: 'Search', group: 'Global' },
-  { action: 'configureRecurrence', description: 'Configure recurrence for hovered task', group: 'Global' },
+  { action: 'configureRecurrence', description: 'Configure recurrence for focused or hovered task', group: 'Global' },
   { action: 'undo', description: 'Undo last task action', group: 'Global' },
   { action: 'toggleCompleted', description: 'Show/hide completed tasks', group: 'Global' },
-  { action: 'completeHovered', description: 'Complete/reopen hovered task', group: 'Hovered task' },
-  { action: 'moveHoveredToday', description: 'Move hovered task to today', group: 'Hovered task' },
-  { action: 'moveHoveredTomorrow', description: 'Move hovered task to tomorrow', group: 'Hovered task' },
-  { action: 'deleteHovered', description: 'Delete hovered task', group: 'Hovered task' },
+  { action: 'completeHovered', description: 'Complete/reopen focused or hovered task', group: 'Hovered task' },
+  { action: 'moveHoveredToday', description: 'Move focused or hovered task to today', group: 'Hovered task' },
+  { action: 'moveHoveredTomorrow', description: 'Move focused or hovered task to tomorrow', group: 'Hovered task' },
+  { action: 'deleteHovered', description: 'Delete focused or hovered task', group: 'Hovered task' },
 ]
 
 export const defaultShortcuts: ShortcutMap = {
