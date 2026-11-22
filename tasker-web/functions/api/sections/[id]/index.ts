@@ -29,7 +29,9 @@ export async function onRequestPatch(context: AppContext) {
 
     const slug = slugify(name);
     if (!slug) return error('Section name must include letters or numbers');
-    const conflict = await context.env.DB.prepare('SELECT id FROM sections WHERE slug = ? AND id != ?').bind(slug, id).first();
+    const conflict = await context.env.DB.prepare('SELECT id FROM sections WHERE slug = ? AND id != ?')
+      .bind(slug, id)
+      .first();
     if (conflict) return error('A section with this name already exists');
     updates.push('name = ?', 'slug = ?');
     values.push(name, slug);
@@ -48,12 +50,16 @@ export async function onRequestPatch(context: AppContext) {
 
   if (body.icon !== undefined) {
     updates.push('icon = ?');
-    values.push(optionalString(body.icon));
+    const value = optionalString(body.icon);
+    if (value === undefined) return error('Invalid icon');
+    values.push(value);
   }
 
   if (body.description !== undefined) {
     updates.push('description = ?');
-    values.push(optionalString(body.description));
+    const value = optionalString(body.description);
+    if (value === undefined) return error('Invalid description');
+    values.push(value);
   }
 
   if (updates.length === 0) {
@@ -63,9 +69,12 @@ export async function onRequestPatch(context: AppContext) {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   values.push(id);
 
-  await context.env.DB.prepare(`UPDATE sections SET ${updates.join(', ')} WHERE id = ?`)
+  const result = await context.env.DB.prepare(
+    `UPDATE sections SET ${updates.join(', ')} WHERE id = ? RETURNING id`,
+  )
     .bind(...values)
-    .run();
+    .first();
+  if (!result) return error('Section not found', 404);
 
   return json({ ok: true });
 }
@@ -77,14 +86,15 @@ export async function onRequestDelete(context: AppContext) {
     return error('Invalid section id');
   }
 
-  await context.env.DB.batch([
+  const results = await context.env.DB.batch([
     context.env.DB.prepare(
       `UPDATE tasks
-       SET section_id = NULL, updated_at = CURRENT_TIMESTAMP
+       SET section_id = NULL, revision=revision+1,change_token=NULL, updated_at = CURRENT_TIMESTAMP
        WHERE section_id = ?`,
     ).bind(id),
-    context.env.DB.prepare('DELETE FROM sections WHERE id = ?').bind(id),
+    context.env.DB.prepare('DELETE FROM sections WHERE id = ? RETURNING id').bind(id),
   ]);
+  if (!results[1].results.length) return error('Section not found', 404);
 
   return json({ ok: true });
 }
