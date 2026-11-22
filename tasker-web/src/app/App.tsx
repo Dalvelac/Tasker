@@ -1,23 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AppShell } from '../components/AppShell'
 import { QuickAddModal } from '../components/QuickAddModal'
 import { RecurrenceModal } from '../components/RecurrenceModal'
 import { SearchModal } from '../components/SearchModal'
 import { ShortcutsOverlay } from '../components/ShortcutsOverlay'
+import { TaskDetail } from '../components/TaskDetail'
 import { createSection, deleteSection, listSections } from '../features/sections/api'
-import type { Section, SectionInput } from '../features/sections/types'
 import {
   defaultShortcuts,
   getShortcutLabel,
   loadShortcuts,
   saveShortcuts,
   type ShortcutAction,
-  type ShortcutMap,
 } from '../features/shortcuts'
 import { getStatsOverview } from '../features/stats/api'
-import type { StatsOverview } from '../features/stats/types'
 import { createNotebookActions } from '../features/notebooks/actions'
-import { createTask, deleteTask, listTasks, toggleTask, updateTask } from '../features/tasks/api'
+import { createTask, deleteTask, listTasks, undoChange, updateTask, type Mutation } from '../features/tasks/api'
 import type { Task, TaskInput } from '../features/tasks/types'
 import { CalendarView } from '../views/CalendarView'
 import { DashboardView } from '../views/DashboardView'
@@ -32,402 +30,444 @@ import { StackedPlannerView } from '../views/StackedPlannerView'
 import { TodayView } from '../views/TodayView'
 import { UnscheduledView } from '../views/UnscheduledView'
 import { UpcomingView } from '../views/UpcomingView'
-import { navigationItems, type ViewId } from './navigation'
-import { addDays, todayKey } from '../lib/dates'
+import { navigationShortcuts, type ViewId } from './navigation'
+import { navigate, useRoute, viewUrl } from './routes'
+import { addDays, monthKey, todayKey } from '../lib/dates'
+import { useResource } from '../lib/useResource'
+import { isActionable } from '../../shared/planner'
 
-function isTypingTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) return false
-  return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable
+const loadTasks = () => listTasks({ includeDone: true, summary: true, kind: 'planner' })
+const loadNotes = () => listTasks({ includeDone: true, summary: true, kind: 'vault' })
+const loadStats = () => getStatsOverview(120)
+type UndoItem = { label: string; token: string }
+type Overlay = 'add' | 'search' | 'shortcuts' | number | null
+function isTyping(target: EventTarget | null) {
+  return target instanceof HTMLElement && (target.isContentEditable || !!target.closest('input,select,textarea'))
 }
-
-type UndoItem = {
-  label: string
-  run: () => Promise<void>
+function dateParam(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(value + 'T00:00:00Z')
+  return Number.isFinite(date.getTime()) && date.toISOString().startsWith(value) ? value : null
 }
-
-function taskToInput(task: Task): TaskInput {
-  return {
-    title: task.title,
-    notes: task.notes,
-    source_path: task.source_path,
-    section_id: task.section_id,
-    date: task.date,
-    start_time: task.start_time,
-    end_time: task.end_time,
-    duration_minutes: task.duration_minutes,
-    priority: task.priority,
-    status: task.status,
-    type: task.type,
-    is_all_day: task.is_all_day,
-    day_period: task.day_period,
-    recurrence_type: task.recurrence_type,
-    recurrence_interval: task.recurrence_interval,
-    recurrence_days: task.recurrence_days,
-    recurrence_until: task.recurrence_until,
-  }
-}
-
 export default function App() {
-  const [activeView, setActiveView] = useState<ViewId>('dashboard')
-  const [sections, setSections] = useState<Section[]>([])
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [stats, setStats] = useState<StatsOverview | null>(null)
+  const { view, params } = useRoute()
+  const openView = (id: ViewId) => navigate(viewUrl(id))
+  const taskData = useResource(loadTasks)
+  const sectionData = useResource(listSections)
+  const noteData = useResource(loadNotes, view === 'obsidian')
+  const statsData = useResource(loadStats, view === 'dashboard')
+  const tasks = taskData.value ?? [],
+    notes = noteData.value ?? [],
+    sections = sectionData.value ?? []
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [hoveredTaskId, setHoveredTaskId] = useState<number | null>(null)
+  const [overlay, setOverlay] = useState<Overlay>(null)
   const [showCompleted, setShowCompleted] = useState(true)
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
-  const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false)
-  const [recurrenceTaskId, setRecurrenceTaskId] = useState<number | null>(null)
-  const [shortcuts, setShortcuts] = useState<ShortcutMap>(() => loadShortcuts())
-  const [listeningAction, setListeningAction] = useState<ShortcutAction | null>(null)
-  const [undoStack, setUndoStack] = useState<UndoItem[]>([])
-  const [lastUndoLabel, setLastUndoLabel] = useState<string | null>(null)
+  const [shortcuts, setShortcuts] = useState(loadShortcuts)
+  const [listening, setListening] = useState<ShortcutAction | null>(null)
+  const [undo, setUndo] = useState<UndoItem[]>([])
+  const undoBusy = useRef(false)
+  const [undoing, setUndoing] = useState(false)
+  const [, tick] = useState(0)
+  const today = todayKey()
+  const lastDay = useRef(today)
+  const closed = () => setOverlay(null)
+  useEffect(() => {
+    const update = () => tick((value) => value + 1)
+    const timer = setInterval(update, 30000)
+    window.addEventListener('focus', update)
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', update)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [])
+  const refreshSections = sectionData.refresh
+  const refreshStats = statsData.refresh
+  useEffect(() => {
+    if (lastDay.current === today) return
+    lastDay.current = today
+    void refreshSections()
+    if (view === 'dashboard') void refreshStats()
+  }, [today, view, refreshSections, refreshStats])
 
-  async function refresh() {
-    const [nextSections, nextTasks, nextStats] = await Promise.all([
-      listSections(),
-      listTasks({ includeDone: true }),
-      getStatsOverview(120),
-    ])
-    setSections(nextSections)
-    setTasks(nextTasks)
-    setStats(nextStats)
+  async function refreshVault() {
+    await Promise.all([sectionData.refresh(), noteData.refresh()])
   }
-
-  async function runAction(action: () => Promise<void>) {
+  const notebook = createNotebookActions({ refresh: refreshVault, sections, tasks: notes, setError })
+  async function run<T>(action: () => Promise<T>, refresh: () => Promise<unknown>) {
+    let result: T
+    setError(null)
     try {
-      setError(null)
-      await action()
-      await refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong')
-      throw err
+      result = await action()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not save the change')
+      throw cause
+    }
+    await refresh()
+    return result
+  }
+  function remember(result: Mutation, label: string) {
+    const token = result.undoToken
+    if (token)
+      setUndo((current) => [...current.filter((item) => item.token !== token).slice(-9), { token, label }])
+  }
+  const find = (id: number) => tasks.find((t) => t.id === id) ?? notes.find((t) => t.id === id)
+  async function refreshPlanner() {
+    await Promise.all([
+      taskData.refresh(),
+      sectionData.refresh(),
+      ...(view === 'dashboard' ? [statsData.refresh()] : []),
+    ])
+  }
+  async function refreshMutation(record: Task | undefined, input?: TaskInput) {
+    if (input?.kind || record?.kind === 'review') {
+      await Promise.all([refreshPlanner(), noteData.refresh()])
+      return
+    }
+    if (record?.kind === 'note') {
+      await noteData.refresh()
+      if (!input) await refreshPlanner()
+      else if (input.section_id !== undefined) await sectionData.refresh()
+      return
+    }
+    if (input && Object.keys(input).every((key) => ['title', 'notes', 'expectedRevision'].includes(key))) {
+      await taskData.refresh()
+      return
+    }
+    await refreshPlanner()
+  }
+  function createPlannerTask(input: TaskInput) {
+    return run(async () => {
+      const result = await createTask(input)
+      remember(result, 'create ' + input.title)
+      return result.id
+    }, refreshPlanner)
+  }
+  const actions = {
+    onCreateTask: async (input: TaskInput) => {
+      await createPlannerTask(input)
+    },
+    onDeleteTask: (id: number, revision?: number) => {
+      const record = find(id)
+      return run(
+        async () =>
+          remember(await deleteTask(id, revision ?? record?.revision), 'delete ' + (record?.title ?? 'task')),
+        () => refreshMutation(record),
+      )
+    },
+    onToggleTask: (id: number, seen?: Task) => {
+      const record = seen ?? find(id)
+      if (!record) return Promise.reject(new Error('Task is unavailable'))
+      return run(
+        async () =>
+          remember(
+            await updateTask(id, {
+              status: record.status === 'done' ? 'pending' : 'done',
+              expectedRevision: record.revision,
+            }),
+            'change status of ' + record.title,
+          ),
+        refreshPlanner,
+      )
+    },
+    onUpdateTask: (id: number, input: TaskInput) => {
+      const record = find(id)
+      return run(
+        async () =>
+          remember(
+            await updateTask(id, { expectedRevision: record?.revision, ...input }),
+            'edit ' + (record?.title ?? 'task'),
+          ),
+        () => refreshMutation(record, input),
+      )
+    },
+  }
+  async function undoLast() {
+    const item = undo.at(-1)
+    if (!item || undoBusy.current) return
+    undoBusy.current = true
+    setUndoing(true)
+    try {
+      await run(
+        async () => {
+          await undoChange(item.token)
+          setUndo((current) => current.filter((entry) => entry.token !== item.token))
+        },
+        () => Promise.all([refreshPlanner(), ...(view === 'obsidian' ? [noteData.refresh()] : [])]),
+      )
+    } catch {
+      /* The error and original undo entry remain visible. */
+    } finally {
+      undoBusy.current = false
+      setUndoing(false)
     }
   }
-
-  const notebookActions = createNotebookActions({ refresh, sections, setError, tasks })
-
-  function pushUndo(item: UndoItem) {
-    setUndoStack((current) => [...current.slice(-9), item])
-    setLastUndoLabel(item.label)
-  }
-
-  async function undoLastAction() {
-    const item = undoStack.at(-1)
-    if (!item) return
-
-    setUndoStack((current) => current.slice(0, -1))
-    await runAction(item.run)
-    setLastUndoLabel(`Undid ${item.label}`)
-  }
-
-  function updateShortcut(action: ShortcutAction, keys: string) {
-    const nextShortcuts = { ...shortcuts, [action]: keys }
-    setShortcuts(nextShortcuts)
-    saveShortcuts(nextShortcuts)
-    setListeningAction(null)
-  }
-
-  function resetShortcuts() {
-    setShortcuts(defaultShortcuts)
-    saveShortcuts(defaultShortcuts)
-    setListeningAction(null)
-  }
-
+  const hovered = useRef<number | null>(null)
   useEffect(() => {
-    // Initial API hydration belongs here because Pages Functions are the source of truth.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refresh()
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Could not load Tasker')
-      })
-      .finally(() => setIsLoading(false))
+    const hover = (event: Event) => {
+      hovered.current = (event as CustomEvent<number | null>).detail
+    }
+    window.addEventListener('tasker:hover-task', hover)
+    return () => window.removeEventListener('tasker:hover-task', hover)
   }, [])
-
   useEffect(() => {
-    function handleHoverTask(event: Event) {
-      const detail = (event as CustomEvent<number | null>).detail
-      setHoveredTaskId(detail ?? null)
-    }
-
-    window.addEventListener('tasker:hover-task', handleHoverTask)
-    return () => window.removeEventListener('tasker:hover-task', handleHoverTask)
-  }, [])
-
-  const commonTaskProps = {
-    sections,
-    tasks: showCompleted ? tasks : tasks.filter((task) => task.status !== 'done'),
-    onCreateTask: (input: TaskInput) =>
-      runAction(async () => {
-        const result = await createTask(input)
-        pushUndo({
-          label: `create "${input.title ?? 'task'}"`,
-          run: () => deleteTask(result.id).then(() => undefined),
-        })
-      }),
-    onDeleteTask: (id: number) =>
-      runAction(async () => {
-        const task = tasks.find((item) => item.id === id)
-        await deleteTask(id)
-        if (task) {
-          pushUndo({
-            label: `delete "${task.title}"`,
-            run: () => createTask(taskToInput(task)).then(() => undefined),
-          })
-        }
-      }),
-    onToggleTask: (id: number) =>
-      runAction(async () => {
-        const task = tasks.find((item) => item.id === id)
-        await toggleTask(id)
-        if (task) {
-          pushUndo({
-            label: `toggle "${task.title}"`,
-            run: () => updateTask(id, { status: task.status }).then(() => undefined),
-          })
-        }
-      }),
-    onUpdateTask: (id: number, input: TaskInput) =>
-      runAction(async () => {
-        const task = tasks.find((item) => item.id === id)
-        await updateTask(id, input)
-        if (task) {
-          pushUndo({
-            label: `edit "${task.title}"`,
-            run: () => updateTask(id, taskToInput(task)).then(() => undefined),
-          })
-        }
-      }),
-  }
-
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (isTypingTarget(event.target)) return
-
-      const shortcut = getShortcutLabel(event)
-      const hoveredTask = hoveredTaskId ? tasks.find((task) => task.id === hoveredTaskId) : null
-
-      if (shortcut === shortcuts.showShortcuts) {
+    function keydown(event: KeyboardEvent) {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        overlay !== null ||
+        document.querySelector('dialog[open]') ||
+        isTyping(event.target)
+      )
+        return
+      const key = getShortcutLabel(event)
+      if (listening && view === 'shortcuts') return
+      const target = event.target instanceof HTMLElement ? event.target : null
+      const focused = target?.closest<HTMLElement>('[data-task-id]')
+      const id = focused ? Number(focused.dataset.taskId) : hovered.current
+      const actual =
+        id && (focused || document.querySelector('[data-task-id="' + id + '"]:hover')) ? find(id) : null
+      const item = navigationShortcuts.find((entry) => entry.key === key)
+      const action = (Object.keys(shortcuts) as ShortcutAction[]).find((action) => shortcuts[action] === key)
+      if (item) {
         event.preventDefault()
-        setIsShortcutsOpen((value) => !value)
+        openView(item.item.id)
         return
       }
-
-      if (shortcut === shortcuts.quickAdd) {
-        event.preventDefault()
-        setIsQuickAddOpen(true)
+      if (!action) return
+      if (
+        [
+          'configureRecurrence',
+          'completeHovered',
+          'moveHoveredToday',
+          'moveHoveredTomorrow',
+          'deleteHovered',
+        ].includes(action) &&
+        !actual
+      )
         return
-      }
-
-      if (shortcut === shortcuts.planMyDay) {
-        event.preventDefault()
-        setActiveView('plan')
-        return
-      }
-
-      if (shortcut === shortcuts.search) {
-        event.preventDefault()
-        setIsSearchOpen(true)
-        return
-      }
-
-      if (shortcut === shortcuts.configureRecurrence) {
-        event.preventDefault()
-        if (hoveredTask) setRecurrenceTaskId(hoveredTask.id)
-        return
-      }
-
-      if (shortcut === shortcuts.undo) {
-        event.preventDefault()
-        void undoLastAction()
-        return
-      }
-
-      if (!event.ctrlKey && !event.metaKey && /^[0-9]$/.test(event.key)) {
-        const itemIndex = event.key === '0' ? 9 : Number(event.key) - 1
-        const item = navigationItems[itemIndex]
-        if (item) {
-          event.preventDefault()
-          setActiveView(item.id)
-        }
-        return
-      }
-
-      if (shortcut === shortcuts.toggleCompleted) {
-        event.preventDefault()
-        setShowCompleted((value) => !value)
-        return
-      }
-
-      if (!hoveredTask) return
-
-      if (shortcut === shortcuts.completeHovered) {
-        event.preventDefault()
-        void commonTaskProps.onToggleTask(hoveredTask.id)
-        return
-      }
-
-      if (shortcut === shortcuts.moveHoveredToday) {
-        event.preventDefault()
-        void commonTaskProps.onUpdateTask(hoveredTask.id, { date: todayKey() })
-        return
-      }
-
-      if (shortcut === shortcuts.moveHoveredTomorrow) {
-        event.preventDefault()
-        void commonTaskProps.onUpdateTask(hoveredTask.id, { date: addDays(todayKey(), 1) })
-        return
-      }
-
-      if (shortcut === shortcuts.deleteHovered) {
-        event.preventDefault()
-        void commonTaskProps.onDeleteTask(hoveredTask.id)
+      if (key === 'Space' && target?.closest('button,a')) return
+      event.preventDefault()
+      switch (action) {
+        case 'quickAdd':
+          setOverlay('add')
+          break
+        case 'search':
+          setOverlay('search')
+          break
+        case 'showShortcuts':
+          setOverlay('shortcuts')
+          break
+        case 'planMyDay':
+          openView('plan')
+          break
+        case 'undo':
+          void undoLast()
+          break
+        case 'toggleCompleted':
+          setShowCompleted((v) => !v)
+          break
+        case 'configureRecurrence':
+          setOverlay(actual!.id)
+          break
+        case 'completeHovered':
+          void actions.onToggleTask(actual!.id).catch(() => {})
+          break
+        case 'moveHoveredToday':
+        case 'moveHoveredTomorrow':
+          void actions
+            .onUpdateTask(actual!.id, { date: action === 'moveHoveredToday' ? today : addDays(today, 1) })
+            .catch(() => {})
+          break
+        case 'deleteHovered':
+          void actions.onDeleteTask(actual!.id).catch(() => {})
+          break
       }
     }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', keydown)
+    return () => window.removeEventListener('keydown', keydown)
   })
-
-  function renderView() {
-    if (isLoading) {
-      return (
-        <section className="view">
-          <div className="card card--pad">Loading Tasker...</div>
-        </section>
-      )
+  function configure(action: ShortcutAction, keys: string) {
+    if (
+      navigationShortcuts.some((entry) => entry.key === keys) ||
+      Object.entries(shortcuts).some(([name, key]) => name !== action && key === keys)
+    ) {
+      setError('That shortcut is already assigned. Choose another combination.')
+      return
     }
-
-    if (activeView === 'today') return <TodayView {...commonTaskProps} onOpenPlan={() => setActiveView('plan')} />
-    if (activeView === 'focus') return <PomodoroView />
-    if (activeView === 'plan') {
-      return (
-        <PlanMyDayView
-          sections={sections}
-          tasks={tasks}
-          onDeleteTask={commonTaskProps.onDeleteTask}
-          onToggleTask={commonTaskProps.onToggleTask}
-          onUpdateTask={commonTaskProps.onUpdateTask}
-        />
-      )
-    }
-    if (activeView === 'planner') {
-      return (
-        <StackedPlannerView
-          sections={sections}
-          tasks={tasks}
-          onDeleteTask={commonTaskProps.onDeleteTask}
-          onToggleTask={commonTaskProps.onToggleTask}
-          onUpdateTask={commonTaskProps.onUpdateTask}
-        />
-      )
-    }
-    if (activeView === 'calendar') {
-      return <CalendarView sections={sections} tasks={tasks} onCreateTask={commonTaskProps.onCreateTask} />
-    }
-    if (activeView === 'upcoming') {
-      return (
-        <UpcomingView
-          sections={sections}
-          tasks={tasks}
-          onDeleteTask={commonTaskProps.onDeleteTask}
-          onToggleTask={commonTaskProps.onToggleTask}
-          onUpdateTask={commonTaskProps.onUpdateTask}
-        />
-      )
-    }
-    if (activeView === 'overdue') {
-      return (
-        <OverdueView
-          sections={sections}
-          tasks={tasks}
-          onDeleteTask={commonTaskProps.onDeleteTask}
-          onToggleTask={commonTaskProps.onToggleTask}
-          onUpdateTask={commonTaskProps.onUpdateTask}
-        />
-      )
-    }
-    if (activeView === 'inbox') return <InboxView {...commonTaskProps} />
-    if (activeView === 'unscheduled') {
-      return (
-        <UnscheduledView
-          sections={sections}
-          tasks={tasks}
-          onDeleteTask={commonTaskProps.onDeleteTask}
-          onToggleTask={commonTaskProps.onToggleTask}
-          onUpdateTask={commonTaskProps.onUpdateTask}
-        />
-      )
-    }
-    if (activeView === 'obsidian') {
-      return (
-        <ObsidianImportView
-          sections={sections}
-          tasks={tasks}
-          onCreateObsidianNote={notebookActions.createNote}
-          onCreateObsidianVault={notebookActions.createVault}
-          onDeleteTask={commonTaskProps.onDeleteTask}
-          onImportObsidianNotes={notebookActions.importNotes}
-          onImportObsidianNotesIntoSection={notebookActions.importNotesIntoSection}
-          onRenameObsidianVault={notebookActions.renameVault}
-          onUpdateTask={commonTaskProps.onUpdateTask}
-        />
-      )
-    }
-    if (activeView === 'sections') {
-      return (
-        <SectionsView
-          sections={sections}
-          onCreateSection={(input: SectionInput) => runAction(() => createSection(input).then(() => undefined))}
-          onDeleteSection={(id: number) => runAction(() => deleteSection(id).then(() => undefined))}
-          onImportObsidianNotes={notebookActions.importNotes}
-        />
-      )
-    }
-    if (activeView === 'shortcuts') {
+    const next = { ...shortcuts, [action]: keys }
+    setShortcuts(next)
+    saveShortcuts(next)
+    setListening(null)
+    setError(null)
+  }
+  const eligible = tasks.filter((task) => isActionable(task, today) || task.status === 'done')
+  const visible = showCompleted ? eligible : eligible.filter((task) => task.status !== 'done')
+  const common = { ...actions, sections, tasks: visible }
+  const selected = dateParam(params.get('date'))
+  const month = params.get('month')
+  const detail = Number(params.get('task'))
+  function render() {
+    if (view === 'focus') return <PomodoroView />
+    if (view === 'shortcuts')
       return (
         <ShortcutsView
-          listeningAction={listeningAction}
           shortcuts={shortcuts}
-          onListen={setListeningAction}
-          onReset={resetShortcuts}
-          onShortcutChange={updateShortcut}
+          listeningAction={listening}
+          onListen={setListening}
+          onShortcutChange={configure}
+          onReset={() => {
+            setShortcuts(defaultShortcuts)
+            saveShortcuts(defaultShortcuts)
+            setListening(null)
+          }}
         />
       )
+    if (view === 'obsidian')
+      return noteData.value && sectionData.value ? (
+        <ObsidianImportView
+          sections={sections}
+          tasks={notes}
+          noteId={Number(params.get('note')) || null}
+          vaultId={params.has('vault') ? Number(params.get('vault')) : null}
+          onCreateObsidianNote={notebook.createNote}
+          onCreateObsidianVault={notebook.createVault}
+          onDeleteTask={actions.onDeleteTask}
+          onUpdateTask={actions.onUpdateTask}
+          onCreateTask={createPlannerTask}
+          onImportObsidianNotes={notebook.importNotes}
+          onImportObsidianNotesIntoSection={notebook.importNotesIntoSection}
+          onRenameObsidianVault={notebook.renameVault}
+        />
+      ) : (
+        !noteData.error && !sectionData.error && <p role="status">Loading vault…</p>
+      )
+    if (view === 'sections')
+      return (
+        sectionData.value && (
+          <SectionsView
+            sections={sections}
+            onCreateSection={(input) =>
+              run(async () => {
+                await createSection(input)
+              }, sectionData.refresh)
+            }
+            onDeleteSection={(id) =>
+              run(
+                async () => {
+                  await deleteSection(id)
+                },
+                () => Promise.all([refreshPlanner(), noteData.refresh()]),
+              )
+            }
+            onImportObsidianNotes={notebook.importNotes}
+          />
+        )
+      )
+    if (!taskData.value) return taskData.error ? null : <p role="status">Loading tasks…</p>
+    switch (view) {
+      case 'today':
+        return (
+          <TodayView
+            {...common}
+            tasks={eligible}
+            showCompleted={showCompleted}
+            onOpenPlan={() => openView('plan')}
+          />
+        )
+      case 'plan':
+        return <PlanMyDayView {...common} />
+      case 'planner':
+        return <StackedPlannerView {...common} />
+      case 'calendar':
+        return (
+          <CalendarView
+            {...common}
+            tasks={tasks}
+            selectedDate={selected}
+            month={selected?.slice(0, 7) ?? (month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : monthKey())}
+            onSelect={(date, month) => navigate(viewUrl('calendar', { date, month }))}
+          />
+        )
+      case 'upcoming':
+        return <UpcomingView {...common} />
+      case 'overdue':
+        return <OverdueView {...common} />
+      case 'inbox':
+        return <InboxView {...common} />
+      case 'unscheduled':
+        return (
+          <UnscheduledView
+            {...common}
+            postponed={tasks.filter((task) => task.status === 'postponed' && !isActionable(task, today))}
+          />
+        )
+      default:
+        return <DashboardView {...common} stats={statsData.value} statsError={!!statsData.error} />
     }
-
-    return <DashboardView {...commonTaskProps} stats={stats} />
   }
-
-  const recurrenceTask = recurrenceTaskId ? tasks.find((task) => task.id === recurrenceTaskId) : null
-
+  const recurrence = typeof overlay === 'number' ? find(overlay) : null
+  const sources = [
+    { name: 'Tasks', ...taskData },
+    { name: 'Sections', ...sectionData },
+    ...(view === 'dashboard' ? [{ name: 'Statistics', ...statsData }] : []),
+    ...(view === 'obsidian' ? [{ name: 'Notes', ...noteData }] : []),
+  ]
   return (
-    <AppShell activeView={activeView} onNavigate={setActiveView}>
+    <AppShell activeView={view} onNavigate={openView}>
       <div className="hotkey-status">
-        <button className="button button--ghost" disabled={undoStack.length === 0} onClick={undoLastAction} type="button">
-          {shortcuts.undo} undo{lastUndoLabel ? ` · ${lastUndoLabel}` : ''}
+        <button className="button" onClick={() => setOverlay('search')}>
+          Search
+        </button>
+        <button className="button button--primary" onClick={() => setOverlay('add')}>
+          Quick add
+        </button>
+        <button className="button button--ghost" onClick={undoLast} disabled={!undo.length || undoing}>
+          {undoing ? 'Undoing…' : undo.length ? 'Undo ' + undo.at(-1)!.label : 'Undo'}
         </button>
       </div>
-      {error && <div className="card card--pad">{error}</div>}
-      {renderView()}
-      {isQuickAddOpen && (
-        <QuickAddModal
+      {error && (
+        <p role="alert" className="card card--pad form-error">
+          {error}
+        </p>
+      )}
+      {sources.map(
+        (source) =>
+          source.error && (
+            <p role="alert" className="card card--pad" key={source.name}>
+              {source.name} could not refresh. {source.error}{' '}
+              <button className="button" onClick={source.refresh}>
+                Retry {source.name.toLowerCase()}
+              </button>
+            </p>
+          ),
+      )}
+      {render()}
+      {detail > 0 && (
+        <TaskDetail
+          key={detail}
+          id={detail}
+          revision={find(detail)?.revision}
           sections={sections}
-          onClose={() => setIsQuickAddOpen(false)}
-          onCreateTask={commonTaskProps.onCreateTask}
+          onUpdate={actions.onUpdateTask}
+          onToggle={actions.onToggleTask}
+          onDelete={actions.onDeleteTask}
+          onClose={() => {
+            const next = new URLSearchParams(params)
+            next.delete('task')
+            navigate(viewUrl(view, Object.fromEntries(next)), true)
+          }}
         />
       )}
-      {isSearchOpen && <SearchModal tasks={tasks} onClose={() => setIsSearchOpen(false)} />}
-      {isShortcutsOpen && <ShortcutsOverlay shortcuts={shortcuts} onClose={() => setIsShortcutsOpen(false)} />}
-      {recurrenceTask && (
-        <RecurrenceModal
-          task={recurrenceTask}
-          onClose={() => setRecurrenceTaskId(null)}
-          onUpdateTask={commonTaskProps.onUpdateTask}
-        />
+      {overlay === 'add' && (
+        <QuickAddModal sections={sections} onClose={closed} onCreateTask={actions.onCreateTask} />
       )}
+      {overlay === 'search' && (
+        <SearchModal tasks={[...tasks, ...notes.filter((n) => n.kind === 'note')]} onClose={closed} />
+      )}
+      {overlay === 'shortcuts' && <ShortcutsOverlay shortcuts={shortcuts} onClose={closed} />}
+      {recurrence && <RecurrenceModal task={recurrence} onClose={closed} onUpdateTask={actions.onUpdateTask} />}
     </AppShell>
   )
 }

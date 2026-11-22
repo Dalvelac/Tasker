@@ -19,8 +19,8 @@ type TaskCardProps = {
   task: Task
   sections: Section[]
   readonly?: boolean
-  onDelete: (id: number,revision?:number) => Promise<void>
-  onToggle: (id: number,seen?:Task) => Promise<void>
+  onDelete: (id: number, revision?: number) => Promise<void>
+  onToggle: (id: number, seen?: Task) => Promise<void>
   onUpdate: (id: number, input: TaskInput) => Promise<void>
 }
 
@@ -71,7 +71,7 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
   async function startEditing() {
     const current = await getTask(task.id)
     const currentStatus = effectiveStatus(current, todayKey())
-    setBaseline({...current,status:currentStatus})
+    setBaseline({ ...current, status: currentStatus })
     setTitle(current.title)
     setNotes(current.notes ?? '')
     setSectionId(current.section_id)
@@ -199,7 +199,7 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
             <button
               className="button"
               disabled={busy}
-              onClick={() => void perform(() => onToggle(task.id,task))}
+              onClick={() => void perform(() => onToggle(task.id, task))}
               type="button"
             >
               {isDone ? 'Reopen' : 'Done'}
@@ -224,7 +224,7 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
             <button
               className="button button--danger"
               disabled={busy}
-              onClick={() => void perform(() => onDelete(task.id,task.revision))}
+              onClick={() => void perform(() => onDelete(task.id, task.revision))}
               type="button"
             >
               Delete
@@ -258,16 +258,21 @@ export function TaskCard({ task, sections, readonly, onDelete, onToggle, onUpdat
                 isEditing ? setSectionId(v) : void perform(() => onUpdate(task.id, { section_id: v }))
               }
             />
-            <label className="form-label">{(isEditing ? status : effectiveStatus(task,todayKey())) === 'postponed' ? 'Return on' : 'Task date'}<input
-              className="field"
-              onChange={(event) => {
-                const v = event.target.value
-                if (isEditing) setDate(v)
-                else void perform(() => onUpdate(task.id, { date: v || null }))
-              }}
-              type="date"
-              value={isEditing ? date : (task.date ?? '')}
-            /></label>
+            <label className="form-label">
+              {(isEditing ? status : effectiveStatus(task, todayKey())) === 'postponed'
+                ? 'Return on'
+                : 'Task date'}
+              <input
+                className="field"
+                onChange={(event) => {
+                  const v = event.target.value
+                  if (isEditing) setDate(v)
+                  else void perform(() => onUpdate(task.id, { date: v || null }))
+                }}
+                type="date"
+                value={isEditing ? date : (task.date ?? '')}
+              />
+            </label>
             <select
               className="select"
               aria-label="Task priority"

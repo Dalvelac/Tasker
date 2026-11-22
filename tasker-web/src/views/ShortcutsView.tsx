@@ -28,7 +28,10 @@ export function ShortcutsView({
 
     event.preventDefault()
     event.stopPropagation()
-    if(event.key==='Escape'){onListen(null);return}
+    if (event.key === 'Escape') {
+      onListen(null)
+      return
+    }
     const nextShortcut = getShortcutLabel(event)
     if (nextShortcut) onShortcutChange(action, nextShortcut)
   }
@@ -102,8 +105,10 @@ function ShortcutSection({
                 listeningAction === shortcut.action ? 'is-listening' : ''
               }`}
               key={shortcut.action}
-              aria-pressed={listeningAction===shortcut.action}
-              onBlur={()=>{if(listeningAction===shortcut.action)onListen(null)}}
+              aria-pressed={listeningAction === shortcut.action}
+              onBlur={() => {
+                if (listeningAction === shortcut.action) onListen(null)
+              }}
               onClick={() => onListen(shortcut.action)}
               onKeyDown={(event) => onCapture(event, shortcut.action)}
               type="button"
