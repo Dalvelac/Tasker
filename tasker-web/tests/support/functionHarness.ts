@@ -26,7 +26,7 @@ export function loadFunction<T>(path: string): T {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 },
     })
     runInNewContext(outputText, {
-      exports, Response, Request, URL, Date, Error,
+      exports, Response, Request, URL, Date, Error, crypto, Intl,
       require: (name: string) => {
         if (!name.startsWith('.')) throw new Error(`Unexpected external import: ${name}`)
         return load(resolve(dirname(file), name))
@@ -38,10 +38,12 @@ export function loadFunction<T>(path: string): T {
 }
 
 export function sqliteBinding(sqlite: DatabaseSync): D1Database {
+  // Execute statements synchronously inside a batch, as one D1 transaction.
+  const execute = new WeakMap<object, () => { results: unknown[]; meta: { changes: number } }>()
   return {
     prepare(query) {
       let values: D1Value[] = []
-      return {
+      const statement = {
         bind(...input) { values = input; return this },
         async all<T>() {
           return { results: sqlite.prepare(query).all(...values) as T[], meta: {} }
@@ -54,12 +56,16 @@ export function sqliteBinding(sqlite: DatabaseSync): D1Database {
           return { results: [], meta: { changes: Number(result.changes), last_row_id: Number(result.lastInsertRowid) } }
         },
       }
+      execute.set(statement, () => {
+        const rows = sqlite.prepare(query).all(...values)
+        return { results: rows, meta: { changes: Number(sqlite.prepare('SELECT changes() n').get()?.n) } }
+      })
+      return statement
     },
     async batch<T>(statements: ReturnType<D1Database['prepare']>[]) {
       sqlite.exec('BEGIN')
       try {
-        const result = []
-        for (const statement of statements) result.push(await statement.all<T>())
+        const result = statements.map(statement => execute.get(statement)!() as { results: T[]; meta: {changes: number} })
         sqlite.exec('COMMIT')
         return result
       } catch (error) {
