@@ -1,4 +1,5 @@
-import { navigationItems } from '../app/navigation'
+import { Dialog } from './Dialog'
+import { navigationShortcuts } from '../app/navigation'
 import { shortcutDefinitions, type ShortcutMap } from '../features/shortcuts'
 
 type ShortcutsOverlayProps = {
@@ -8,43 +9,31 @@ type ShortcutsOverlayProps = {
 
 export function ShortcutsOverlay({ shortcuts, onClose }: ShortcutsOverlayProps) {
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <div
-        aria-label="Keyboard shortcuts"
-        aria-modal="true"
-        className="modal-panel modal-panel--wide"
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <div className="modal-header">
-          <div>
-            <p className="view-eyebrow">?</p>
-            <h2 className="modal-title">Shortcuts</h2>
-          </div>
-          <button className="button" onClick={onClose} type="button">
-            Close
-          </button>
+    <Dialog label="Keyboard shortcuts" onClose={onClose} wide>
+      <div className="modal-header">
+        <div>
+          <h2 className="modal-title">Shortcuts</h2>
         </div>
-        <div className="shortcut-grid">
-          <ShortcutGroup
-            title="Global"
-            items={shortcutDefinitions
-              .filter((shortcut) => shortcut.group === 'Global')
-              .map((shortcut) => [shortcuts[shortcut.action], shortcut.description])}
-          />
-          <ShortcutGroup
-            title="Navigation"
-            items={navigationItems.map((item, index) => [String((index + 1) % 10 || 0), item.label])}
-          />
-          <ShortcutGroup
-            title="Hovered task"
-            items={shortcutDefinitions
-              .filter((shortcut) => shortcut.group === 'Hovered task')
-              .map((shortcut) => [shortcuts[shortcut.action], shortcut.description])}
-          />
-        </div>
+        <button className="button" onClick={onClose} type="button">
+          Close
+        </button>
       </div>
-    </div>
+      <div className="shortcut-grid">
+        <ShortcutGroup
+          title="Global"
+          items={shortcutDefinitions
+            .filter((shortcut) => shortcut.group === 'Global')
+            .map((shortcut) => [shortcuts[shortcut.action], shortcut.description])}
+        />
+        <ShortcutGroup title="Navigation" items={navigationShortcuts.map(({ item, key }) => [key, item.label])} />
+        <ShortcutGroup
+          title="Hovered task"
+          items={shortcutDefinitions
+            .filter((shortcut) => shortcut.group === 'Hovered task')
+            .map((shortcut) => [shortcuts[shortcut.action], shortcut.description])}
+        />
+      </div>
+    </Dialog>
   )
 }
 

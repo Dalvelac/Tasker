@@ -1608,3 +1608,47 @@ kbd {
     flex-direction: column;
   }
 }
+
+.native-dialog {
+  margin: auto;
+  color: var(--text-primary);
+  max-width: calc(100vw - 24px);
+  overscroll-behavior: contain;
+}
+.native-dialog::backdrop { background: rgb(3 7 18 / 78%); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.form-error { color: #ffb2b8; overflow-wrap: anywhere; }
+.hotkey-status { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.hotkey-status button { max-width:100%; overflow-wrap:anywhere; }
+.sidebar { overflow-y:auto; }
+.sidebar__button,.task-card__title a,.search-result { text-decoration:none; color:inherit; }
+.task-card__title,.search-result,.note-record { min-width:0; overflow-wrap:anywhere; }
+.task-card__title a:hover,.mini-task a { color:var(--accent); }
+.mobile-menu { display:none; }
+.skip-link { position:fixed; z-index:100; top:6px; left:8px; transform:translateY(-180%); background:var(--card); color:var(--text-primary); padding:8px; }
+.skip-link:focus { transform:none; }
+.note-record { display:grid; align-content:start; gap:8px; }
+.note-record > .button { justify-self:start; }
+@media (max-width:980px) {
+  .sidebar { display:grid; grid-template-columns:1fr auto; align-items:center; padding:12px 16px; }
+  .sidebar__brand { margin:0; }
+  .mobile-menu { display:block; }
+  .sidebar__nav { display:none; }
+  .sidebar__nav.is-open { display:grid; grid-column:1/-1; margin-top:12px; }
+  .dashboard-grid,.calendar-layout,.content-grid,.plan-layout,.command-grid { grid-template-columns:minmax(0,1fr); }
+}
+@media (max-width:720px) {
+  .app-main { padding:14px; }
+  .dashboard-grid > *, .view > *, .card, fieldset, .form-grid { min-width:0; }
+  .view { grid-template-columns:minmax(0,1fr); }
+  .calendar-weekdays,.calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); }
+  .calendar-weekdays span { padding:4px 0; text-align:center; }
+  .calendar-day { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2px; min-height:44px; }
+  .calendar-day__tasks { display:none; }
+  .calendar-day__count { font-size:10px; padding:0 4px; margin:0; }
+  .field,.select,.textarea { min-width:0; width:100%; }
+  .search-result { display:grid; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .task-card,.obsidian-dropzone,.pomodoro-ring__progress { transition:none; }
+}

@@ -1,3 +1,4 @@
+import { viewUrl } from '../app/routes'
 import { useState } from 'react'
 import { navigationGroups, type ViewId } from '../app/navigation'
 
@@ -7,6 +8,7 @@ type SidebarProps = {
 }
 
 export function Sidebar({ activeView, onNavigate }: SidebarProps) {
+  const [menu, setMenu] = useState(false)
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navigationGroups.map((group) => [group.id, true])),
   )
@@ -28,7 +30,15 @@ export function Sidebar({ activeView, onNavigate }: SidebarProps) {
         </div>
       </div>
 
-      <nav className="sidebar__nav" aria-label="Main navigation">
+      <button
+        className="button mobile-menu"
+        aria-expanded={menu}
+        aria-controls="main-nav"
+        onClick={() => setMenu(!menu)}
+      >
+        Menu
+      </button>
+      <nav id="main-nav" className={'sidebar__nav' + (menu ? ' is-open' : '')} aria-label="Main navigation">
         {navigationGroups.map((group) => {
           const isOpen = openGroups[group.id]
           const hasActiveItem = group.items.some((item) => item.id === activeView)
@@ -48,15 +58,22 @@ export function Sidebar({ activeView, onNavigate }: SidebarProps) {
               {isOpen && (
                 <div className="sidebar__group-items">
                   {group.items.map((item) => (
-                    <button
+                    <a
                       className={`sidebar__button ${activeView === item.id ? 'is-active' : ''}`}
                       key={item.id}
-                      onClick={() => onNavigate(item.id)}
-                      type="button"
+                      href={viewUrl(item.id)}
+                      aria-current={activeView === item.id ? 'page' : undefined}
+                      onClick={(event) => {
+                        if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+                          event.preventDefault()
+                          setMenu(false)
+                          onNavigate(item.id)
+                        }
+                      }}
                     >
                       <span className="sidebar__icon">{item.icon}</span>
                       <span>{item.label}</span>
-                    </button>
+                    </a>
                   ))}
                 </div>
               )}

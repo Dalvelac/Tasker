@@ -64,3 +64,7 @@ export const navigationGroups: NavigationGroup[] = [
 ]
 
 export const navigationItems = navigationGroups.flatMap((group) => group.items)
+
+export const navigationShortcuts = navigationItems
+  .slice(0, 10)
+  .map((item, index) => ({ item, key: String((index + 1) % 10) }))

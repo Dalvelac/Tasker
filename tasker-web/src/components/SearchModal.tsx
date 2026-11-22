@@ -1,77 +1,66 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Task } from '../features/tasks/types'
-import { formatDateKey } from '../lib/dates'
+import { viewUrl, followLink } from '../app/routes'
+import { useSearch } from '../features/tasks/useSearch'
+import { Dialog } from './Dialog'
 
-type SearchModalProps = {
-  tasks: Task[]
-  onClose: () => void
-}
-
-export function SearchModal({ tasks, onClose }: SearchModalProps) {
+export function SearchModal({ tasks, onClose }: { tasks: Task[]; onClose: () => void }) {
   const [query, setQuery] = useState('')
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const results = useMemo(() => {
-    const normalized = query.trim().toLowerCase()
-
-    if (!normalized) {
-      return tasks.slice(0, 12)
-    }
-
-    return tasks
-      .filter((task) =>
-        [task.title, task.notes, task.section_name, task.priority, task.status]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(normalized)),
-      )
-      .slice(0, 20)
-  }, [query, tasks])
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
+  const response = useSearch(query)
+  const results = query.trim() ? (response?.rows ?? []) : tasks.slice(0, 12)
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <div
-        aria-label="Search tasks"
-        aria-modal="true"
-        className="modal-panel modal-panel--wide"
-        onMouseDown={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <div className="modal-header">
-          <div>
-            <p className="view-eyebrow">Ctrl K</p>
-            <h2 className="modal-title">Search</h2>
-          </div>
-          <button className="button" onClick={onClose} type="button">
-            Close
-          </button>
-        </div>
-        <input
-          className="field search-field"
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search title, notes, section..."
-          ref={inputRef}
-          value={query}
-        />
-        <div className="search-results">
-          {results.map((task) => (
-            <article className="search-result" key={task.id}>
+    <Dialog wide label="Search tasks and notes" onClose={onClose}>
+      <div className="modal-header">
+        <h2>Search tasks and notes</h2>
+        <button className="button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      <input
+        className="field search-field"
+        aria-label="Search tasks and notes"
+        data-initial-focus
+        placeholder="Search titles, notes, or sections…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === 'ArrowDown') {
+            const first = e.currentTarget.parentElement?.querySelector<HTMLAnchorElement>('.search-result')
+            if (first) {
+              e.preventDefault()
+              if (e.key === 'Enter') first.click()
+              else first.focus()
+            }
+          }
+        }}
+      />
+      <div className="search-results">
+        {results.map((task) => {
+          const url =
+            task.kind === 'note' ? viewUrl('obsidian', { note: task.id }) : viewUrl('dashboard', { task: task.id })
+          return (
+            <a
+              href={url}
+              className="search-result"
+              key={task.id}
+              onClick={(event) => {
+                followLink(event, url)
+                if (event.defaultPrevented) onClose()
+              }}
+            >
               <div>
                 <strong>{task.title}</strong>
-                <span>{task.notes ?? task.section_name ?? 'Inbox'}</span>
+                <span>{task.notes || task.source_path || task.section_name || 'Inbox'}</span>
               </div>
-              <div className="task-meta">
-                <span className="pill">{task.date ? formatDateKey(task.date) : 'unscheduled'}</span>
-                <span className="pill">{task.status}</span>
-                <span className="pill">{task.priority}</span>
-              </div>
-            </article>
-          ))}
-          {results.length === 0 && <div className="empty-state">No tasks found.</div>}
-        </div>
+              <span className="pill">{task.kind === 'note' ? 'Note' : task.status}</span>
+            </a>
+          )
+        })}
       </div>
-    </div>
+      {response?.error && <p role="alert">{response.error}</p>}
+      {!results.length && !response?.error && (
+        <p role="status">{query && !response ? 'Searching…' : 'No matching records.'}</p>
+      )}
+    </Dialog>
   )
 }

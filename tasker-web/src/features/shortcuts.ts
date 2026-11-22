@@ -51,6 +51,8 @@ export const defaultShortcuts: ShortcutMap = {
 export const shortcutStorageKey = 'tasker.shortcuts.v1'
 
 export function getShortcutLabel(event: KeyboardEvent | React.KeyboardEvent) {
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return ''
+  if (event.key === '?' && !event.ctrlKey && !event.altKey && !event.metaKey) return '?'
   const parts: string[] = []
 
   if (event.ctrlKey) parts.push('Ctrl')
@@ -79,11 +81,14 @@ export function loadShortcuts() {
 
     return { ...defaultShortcuts, ...(JSON.parse(trimmedRaw) as Partial<ShortcutMap>) }
   } catch {
-    localStorage.removeItem(shortcutStorageKey)
     return defaultShortcuts
   }
 }
 
 export function saveShortcuts(shortcuts: ShortcutMap) {
-  localStorage.setItem(shortcutStorageKey, JSON.stringify(shortcuts))
+  try {
+    localStorage.setItem(shortcutStorageKey, JSON.stringify(shortcuts))
+  } catch {
+    /* The active session retains the settings. */
+  }
 }
