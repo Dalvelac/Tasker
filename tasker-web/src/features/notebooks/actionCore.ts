@@ -1,4 +1,4 @@
-import type { ObsidianImport } from '../import/obsidian'
+import type { ImportProgress, ObsidianImport } from '../import/obsidian'
 import type { Section, SectionInput } from '../sections/types'
 import type { Task, TaskInput } from '../tasks/types'
 import { notePathKey } from '../../../shared/notePathKey.ts'
@@ -13,7 +13,7 @@ export type NotebookActionDependencies = {
 }
 
 export type NotebookActionApi = {
-  createSection: (input: SectionInput) => Promise<{ id: number }>
+  createSection: (input: SectionInput) => Promise<{ id: number; name?: string }>
   createTask: (input: TaskInput) => Promise<{ id: number }>
   updateSection: (id: number, input: Partial<SectionInput>) => Promise<unknown>
   updateTask: (id: number, input: TaskInput) => Promise<unknown>
@@ -28,7 +28,7 @@ export function createNotebookActionSet(
     try {
       setError(null)
       const result = await action()
-      await refresh()
+      await refresh().catch(() => setError('Saved. Refresh to load the latest records.'))
       return result
     } catch (error) {
       // A batch may have written earlier notes before one request failed. Refresh
@@ -44,17 +44,26 @@ export function createNotebookActionSet(
     }
   }
 
-  async function saveNotes(sectionId: number, input: ObsidianImport) {
+  async function saveNotes(
+    sectionId: number,
+    input: ObsidianImport,
+    progress: ImportProgress = input.progress ?? { completed: [] },
+  ) {
     const noteIdsByPath = new Map<string, number>()
-    tasks.filter((task) => task.section_id === sectionId).forEach((task) => {
-      const path = task.source_path || `${task.title}.md`
-      const key = notePathKey(path)
-      const existingId = noteIdsByPath.get(key)
-      // Match the backend's legacy duplicate policy regardless of task sorting.
-      noteIdsByPath.set(key, existingId === undefined ? task.id : Math.min(existingId, task.id))
-    })
+    tasks
+      .filter((task) => task.section_id === sectionId)
+      .forEach((task) => {
+        if (!task.source_path || task.kind === 'task' || task.kind === 'review') return
+        const path = task.source_path
+        const key = notePathKey(path)
+        const existingId = noteIdsByPath.get(key)
+        // Match the backend's legacy duplicate policy regardless of task sorting.
+        noteIdsByPath.set(key, existingId === undefined ? task.id : Math.min(existingId, task.id))
+      })
 
-    for (const note of [...input.notes].reverse()) {
+    for (let index = input.notes.length - 1; index >= 0; index--) {
+      if (progress.completed.includes(index)) continue
+      const note = input.notes[index]
       const pathKey = notePathKey(note.path)
       const existingId = noteIdsByPath.get(pathKey)
       if (existingId) {
@@ -71,6 +80,8 @@ export function createNotebookActionSet(
         })
         noteIdsByPath.set(pathKey, created.id)
       }
+      progress.completed.push(index)
+      input.onProgress?.(progress)
     }
   }
 
@@ -82,6 +93,8 @@ export function createNotebookActionSet(
           title,
           notes: content || null,
           source_path: path,
+          kind: 'note',
+          create_only: true,
           section_id: sectionId,
           priority: 'normal',
           status: 'pending',
@@ -94,18 +107,29 @@ export function createNotebookActionSet(
         const section = await api.createSection({
           name: api.uniqueNotebookName(name, sections),
           color: notebookColors[sections.length % notebookColors.length],
+          is_vault: true,
           description: 'Imported from Obsidian with 0 Markdown notes.',
         })
         return section.id
       }),
     importNotes: (input: ObsidianImport) =>
       run('Could not import Obsidian notes', async () => {
-        const section = await api.createSection({
-          name: api.uniqueNotebookName(input.sectionName, sections),
-          color: notebookColors[sections.length % notebookColors.length],
-          description: `Imported from Obsidian with ${input.notes.length} Markdown notes.`,
-        })
-        await saveNotes(section.id, input)
+        const progress = input.progress ?? { completed: [] }
+        if (!progress.sectionId) {
+          const name = api.uniqueNotebookName(input.sectionName, sections)
+          const section = await api.createSection({
+            name,
+            color: notebookColors[sections.length % notebookColors.length],
+            is_vault: true,
+            description: `Imported from Obsidian with ${input.notes.length} Markdown notes.`,
+            requestKey: progress.requestKey,
+          })
+          progress.sectionId = section.id
+          progress.sectionName = section.name ?? name
+          input.onProgress?.(progress)
+        }
+        await saveNotes(progress.sectionId, input, progress)
+        return `Imported ${input.notes.length} notes into “${progress.sectionName}”.`
       }),
     importNotesIntoSection: (sectionId: number, input: ObsidianImport) =>
       run('Could not add notes to this folder', () => saveNotes(sectionId, input)),
