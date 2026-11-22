@@ -29,10 +29,6 @@ export async function onRequestPatch(context: AppContext) {
 
     const slug = slugify(name);
     if (!slug) return error('Section name must include letters or numbers');
-    const conflict = await context.env.DB.prepare('SELECT id FROM sections WHERE slug = ? AND id != ?')
-      .bind(slug, id)
-      .first();
-    if (conflict) return error('A section with this name already exists');
     updates.push('name = ?', 'slug = ?');
     values.push(name, slug);
   }
@@ -69,12 +65,17 @@ export async function onRequestPatch(context: AppContext) {
   updates.push('updated_at = CURRENT_TIMESTAMP');
   values.push(id);
 
-  const result = await context.env.DB.prepare(
+  try {
+    const result = await context.env.DB.prepare(
     `UPDATE sections SET ${updates.join(', ')} WHERE id = ? RETURNING id`,
   )
     .bind(...values)
     .first();
-  if (!result) return error('Section not found', 404);
+    if (!result) return error('Section not found', 404);
+  } catch (cause) {
+    if (String(cause).includes('UNIQUE constraint')) return error('A section with this name already exists',409);
+    throw cause;
+  }
 
   return json({ ok: true });
 }

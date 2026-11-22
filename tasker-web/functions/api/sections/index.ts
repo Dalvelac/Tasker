@@ -18,7 +18,7 @@ export async function onRequestGet(context: AppContext) {
   if (!day) return error('Invalid time zone');
   const { results } = await context.env.DB.prepare(
     `SELECT
-       sections.*,
+       sections.id,sections.name,sections.slug,sections.color,sections.icon,sections.description,sections.is_vault,sections.created_at,sections.updated_at,
        COUNT(CASE WHEN ${activeSql} THEN 1 END) AS pending_count,
        COUNT(CASE WHEN tasks.kind IN ('note','review') AND tasks.deleted=0 THEN 1 END) AS note_count
      FROM sections
@@ -58,11 +58,6 @@ export async function onRequestPost(context: AppContext) {
 
   if (!slug) {
     return error('Section name must include letters or numbers');
-  }
-
-  const conflict = await context.env.DB.prepare('SELECT id FROM sections WHERE slug = ?').bind(slug).first();
-  if (conflict) {
-    return error('A section with this name already exists', 409);
   }
 
   const values: D1Value[] = [name, slug, color, icon, description, body.is_vault ? 1 : 0, key];

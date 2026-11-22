@@ -1,8 +1,8 @@
 import type { AppContext, D1Value } from '../../_shared/db';
 import { error, json, readJson } from '../../_shared/http';
-import { activeSql, requestDay, sectionFields, taskJoin } from '../../_shared/planner';
+import { activeSql, requestDay, sectionFields, taskColumns, taskJoin } from '../../_shared/planner';
 import { insertTask } from '../../_shared/taskWrites';
-import { valueFields, type Input } from '../../_shared/taskModel';
+import type { Input } from '../../_shared/taskModel';
 import { isPriority, isStatus, optionalDate, optionalInteger } from '../../_shared/validation';
 
 export async function onRequestGet(context: AppContext) {
@@ -57,20 +57,8 @@ export async function onRequestGet(context: AppContext) {
     values.push(search);
   }
   const summary = params.get('summary') === 'true';
-  const columns = summary
-    ? [
-        ...valueFields.filter((key) => key !== 'notes').map((key) => 'tasks.' + key),
-        'tasks.id',
-        'tasks.created_at',
-        'tasks.updated_at',
-        'tasks.completed_at',
-        'tasks.parent_task_id',
-        'tasks.recurrence_rule',
-        'tasks.revision',
-        'substr(tasks.notes,1,140) AS notes',
-        "length(coalesce(tasks.notes,''))>140 AS truncated",
-      ].join(',')
-    : 'tasks.*';
+  const columns = taskColumns(summary, !!search);
+  if (summary && search) values.unshift(search);
   const sql =
     'SELECT ' +
     columns +
@@ -82,7 +70,7 @@ export async function onRequestGet(context: AppContext) {
     `
     ORDER BY tasks.date IS NULL,tasks.date,tasks.start_time IS NULL,tasks.start_time,
     CASE tasks.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,tasks.id DESC`;
-  const { results } = await context.env.DB.prepare(sql + (params.has('q') ? ' LIMIT 40' : ''))
+  const { results } = await context.env.DB.prepare(sql + (search && kind !== 'vault' ? ' LIMIT 40' : ''))
     .bind(...values)
     .all();
   return json(results);

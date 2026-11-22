@@ -55,7 +55,7 @@ test('month-end anchor, alternate weeks including Sunday, and inclusive end date
 })
 test('validates schedule values and distinguishes missing or conflicting records',async t=>{
   const h=planner(t)
-  for(const input of [{date:'2027-02-30'},{start_time:'25:80'},{duration_minutes:-1},{type:'time_block'},{status:'postponed'}]){
+  for(const input of [{date:'2027-02-30'},{start_time:'25:80'},{duration_minutes:-1},{type:'time_block'},{status:'postponed'}, {status:'postponed',date:'2000-01-01'}]){
     assert.equal((await h.create({title:'Invalid',...input})).status,400)
   }
   assert.equal((await h.patch(54321,{title:'Missing'})).status,404)

@@ -1,4 +1,4 @@
-import { activeSql, requestDay } from '../../_shared/planner';
+import { activeSql, requestDay, taskColumns } from '../../_shared/planner';
 import { optionalDate } from '../../_shared/validation';
 import type { AppContext } from '../../_shared/db';
 import { error, json } from '../../_shared/http';
@@ -16,21 +16,21 @@ export async function onRequestGet(context: AppContext) {
 
   const [todayTasks, overdueTasks, urgentTasks, progress] = await context.env.DB.batch([
     context.env.DB.prepare(
-      `SELECT tasks.*, sections.name AS section_name, sections.color AS section_color
+      `SELECT ${taskColumns()}, sections.name AS section_name, sections.color AS section_color
        FROM tasks
        LEFT JOIN sections ON sections.id = tasks.section_id
        WHERE tasks.deleted=0 AND tasks.kind!='note' AND (tasks.status='done' OR (${activeSql})) AND tasks.date = ?
        ORDER BY tasks.start_time IS NULL, tasks.start_time ASC, tasks.id DESC`,
     ).bind(today, today),
     context.env.DB.prepare(
-      `SELECT tasks.*, sections.name AS section_name, sections.color AS section_color
+      `SELECT ${taskColumns()}, sections.name AS section_name, sections.color AS section_color
        FROM tasks
        LEFT JOIN sections ON sections.id = tasks.section_id
        WHERE tasks.date < ? AND (${activeSql})
        ORDER BY tasks.date ASC, tasks.id DESC`,
     ).bind(today, today),
     context.env.DB.prepare(
-      `SELECT tasks.*, sections.name AS section_name, sections.color AS section_color
+      `SELECT ${taskColumns()}, sections.name AS section_name, sections.color AS section_color
        FROM tasks
        LEFT JOIN sections ON sections.id = tasks.section_id
        WHERE tasks.priority = 'urgent' AND (${activeSql})

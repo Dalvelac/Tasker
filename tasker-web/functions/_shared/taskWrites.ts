@@ -1,5 +1,6 @@
 import type { AppContext, D1Database } from './db';
 import { error, json } from './http';
+import { requestDay } from './planner';
 import { claimLegacyNotePath } from './notePaths';
 import { getNextRecurringDate } from './recurrence';
 import {
@@ -24,6 +25,13 @@ function writeFailure(cause: unknown): Response {
 
 export function readTask(db: D1Database, id: number) {
   return db.prepare('SELECT * FROM tasks WHERE id=? AND deleted=0').bind(id).first<TaskRow>();
+}
+
+function checkReturnDate(request: Request, row: TaskValues, old?: TaskRow) {
+  if (row.status !== 'postponed' || (old?.status === row.status && old.date === row.date)) return;
+  const day = requestDay(request);
+  if (!day) return error('Invalid time zone');
+  if (!row.date || row.date <= day.today) return error('Choose a future return date');
 }
 
 async function validateReferences(db: D1Database, row: TaskValues) {
@@ -54,7 +62,7 @@ export async function insertTask(context: AppContext, input: Input) {
   } catch (cause) {
     return error((cause as Error).message);
   }
-  const invalid = await validateReferences(db, row);
+  const invalid = checkReturnDate(context.request, row) ?? await validateReferences(db, row);
   if (invalid) return invalid;
   const token = key || crypto.randomUUID();
   const columns = [...valueFields, 'completed_at', 'create_key', 'change_token'];
@@ -113,7 +121,7 @@ export async function changeTask(
       return error((cause as Error).message);
     }
     if (valueFields.every((key) => next[key] === old[key])) return json({ ok: true });
-    const invalid = await validateReferences(db, next);
+    const invalid = checkReturnDate(context.request, next, old) ?? await validateReferences(db, next);
     if (invalid) return invalid;
   }
   const token = crypto.randomUUID();

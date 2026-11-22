@@ -39,3 +39,16 @@ test('planner queues, section counts and summaries agree about notes, cancellati
   const dashboard=(await(await today(ctx)).json()).data
   assert.equal(dashboard.overdue.length,1);assert.equal(dashboard.urgent.length,2);assert.equal(dashboard.tasks.length,1)
 })
+
+test('search matches full Markdown, returns a short matching excerpt and reserves undo tokens for writers', async t => {
+  const h=planner(t)
+  const get=loadFunction<{onRequestGet:(ctx:AppContext)=>Promise<Response>}>('functions/api/tasks/index.ts').onRequestGet
+  const body='chapter '.repeat(80)+'orchard marker '+ 'end '.repeat(60)
+  const {id}=(await(await h.create({title:'Travel',notes:body},'private-write-token')).json()).data
+  async function rows(query:string){return (await(await get({env:h.env,request:new Request('https://test/api/tasks'+query)})).json()).data}
+  const [summary]=await rows('?summary=true&q=orchard')
+  assert.equal(summary.id,id);assert.equal(summary.truncated,1);assert.match(summary.notes,/orchard/);assert.ok(summary.notes.length<=140)
+  const [detail]=await rows('')
+  assert.equal(detail.notes,body)
+  for(const item of [summary,detail]){assert.equal(item.create_key,undefined);assert.equal(item.change_token,undefined)}
+})
