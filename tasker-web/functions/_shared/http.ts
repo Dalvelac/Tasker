@@ -8,7 +8,8 @@ export function error(message: string, status = 400) {
 
 export async function readJson<T>(request: Request): Promise<T> {
   try {
-    return (await request.json()) as T;
+    const body = await request.json();
+    return (body && typeof body === 'object' && !Array.isArray(body) ? body : {}) as T;
   } catch {
     return {} as T;
   }

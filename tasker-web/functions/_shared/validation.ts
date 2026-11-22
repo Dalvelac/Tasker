@@ -76,9 +76,9 @@ export function optionalDate(value: unknown) {
   }
 
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
+    const date = new Date(value + 'T00:00:00Z');
+    if (Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value) return value;
   }
-
   return undefined;
 }
 
@@ -87,7 +87,7 @@ export function optionalTime(value: unknown) {
     return null;
   }
 
-  if (typeof value === 'string' && /^\d{2}:\d{2}$/.test(value)) {
+  if (typeof value === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) {
     return value;
   }
 
@@ -107,6 +107,7 @@ export function optionalInteger(value: unknown) {
     return null;
   }
 
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^-?\d+$/.test(value))) return undefined;
   const numberValue = Number(value);
-  return Number.isInteger(numberValue) ? numberValue : undefined;
+  return Number.isSafeInteger(numberValue) ? numberValue : undefined;
 }
