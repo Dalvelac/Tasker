@@ -15,12 +15,18 @@ test('upgrades vaults and mixed entries without changing IDs, content, relations
     INSERT INTO tasks(id,title,parent_task_id,source_path,status,completed_at) VALUES(21,'Mixed',20,'Mixed.md','done','2025-05-15 04:12:01');
     INSERT INTO tags(id,name) VALUES(12,'Keep');
     INSERT INTO task_tags VALUES(21,12);
+    INSERT INTO tasks(id,title,section_id,parent_task_id) VALUES(30,'Keep after removal',997,998);
+    INSERT INTO task_tags VALUES(30,999),(996,12);
     INSERT INTO tasks(id,title) VALUES(500,'retired'); DELETE FROM tasks WHERE id=500;`)
   upgraded.exec(readProjectFile('migrations/0006_planner_integrity.sql'))
   const rows=upgraded.prepare('SELECT id,kind,notes,parent_task_id,completed_at FROM tasks ORDER BY id').all()
-  assert.deepEqual(rows.map(r=>[r.id,r.kind]),[[10,'note'],[20,'review'],[21,'review']])
+  assert.deepEqual(rows.map(r=>[r.id,r.kind]),[[10,'note'],[20,'review'],[21,'review'],[30,'task']])
   assert.equal(rows[0].notes,'    code');assert.equal(rows[2].parent_task_id,20);assert.equal(rows[2].completed_at,'2025-05-15 04:12:01')
   assert.equal(upgraded.prepare('SELECT tag_id FROM task_tags').get()?.tag_id,12)
+  assert.deepEqual(upgraded.prepare('SELECT relation,task_id,referenced_id FROM migration_0006_unresolved ORDER BY relation, task_id').all().map(row=>Object.values(row)),
+    [['parent',30,998],['section',30,997],['task_tag',30,999],['task_tag',996,12]])
+  assert.equal(upgraded.prepare('SELECT section_id FROM tasks WHERE id=30').get()?.section_id,null)
+  assert.equal(upgraded.prepare('SELECT parent_task_id FROM tasks WHERE id=30').get()?.parent_task_id,null)
   assert.equal(Number(upgraded.prepare("INSERT INTO tasks(title) VALUES('new')").run().lastInsertRowid),501)
   for(const table of ['tasks','task_tags','sections']){
     const constraints=(db:DatabaseSync)=>db.prepare('PRAGMA foreign_key_list('+table+')').all().map(f=>[f.from,f.table,f.to,f.on_delete]).sort()

@@ -80,6 +80,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_section_source_path_key
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_spawned_by ON tasks(spawned_by)
   WHERE spawned_by IS NOT NULL AND deleted = 0;
 CREATE INDEX IF NOT EXISTS idx_tasks_kind ON tasks(kind, deleted);
+-- Older migration-based installations allowed references to records that were later deleted.
+CREATE TABLE IF NOT EXISTS migration_0006_unresolved (
+  relation TEXT NOT NULL,
+  task_id INTEGER NOT NULL,
+  referenced_id INTEGER NOT NULL,
+  PRIMARY KEY (relation, task_id, referenced_id)
+);
 CREATE TABLE IF NOT EXISTS task_changes (
   token TEXT PRIMARY KEY,
   task_id INTEGER NOT NULL,

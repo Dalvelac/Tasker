@@ -5,6 +5,17 @@ ALTER TABLE sections ADD COLUMN create_key TEXT;
 CREATE UNIQUE INDEX idx_sections_create_key ON sections(create_key);
 UPDATE sections SET is_vault=1 WHERE description LIKE 'Imported from Obsidian%' OR EXISTS
   (SELECT 1 FROM tasks WHERE tasks.section_id=sections.id AND source_path IS NOT NULL);
+-- Older migration-based installations allowed references to records that were later deleted.
+CREATE TABLE IF NOT EXISTS migration_0006_unresolved (
+  relation TEXT NOT NULL,
+  task_id INTEGER NOT NULL,
+  referenced_id INTEGER NOT NULL,
+  PRIMARY KEY (relation, task_id, referenced_id)
+);
+INSERT INTO migration_0006_unresolved
+SELECT 'section',id,section_id FROM tasks WHERE section_id IS NOT NULL AND section_id NOT IN (SELECT id FROM sections)
+UNION ALL SELECT 'parent',id,parent_task_id FROM tasks WHERE parent_task_id IS NOT NULL AND parent_task_id NOT IN (SELECT id FROM tasks)
+UNION ALL SELECT 'task_tag',task_id,tag_id FROM task_tags WHERE task_id NOT IN (SELECT id FROM tasks) OR tag_id NOT IN (SELECT id FROM tags);
 CREATE TABLE task_sequence_backup AS SELECT seq FROM sqlite_sequence WHERE name='tasks';
 CREATE TABLE tasks_next (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,7 +55,7 @@ CREATE TABLE tasks_next (
   FOREIGN KEY (parent_task_id) REFERENCES tasks_next(id) ON DELETE SET NULL
 );
 INSERT INTO tasks_next (id,title,notes,source_path,source_path_key,section_id,date,due_date,start_time,end_time,duration_minutes,priority,status,type,is_all_day,day_period,recurrence_rule,recurrence_type,recurrence_interval,recurrence_days,recurrence_until,parent_task_id,created_at,updated_at,completed_at,kind)
-SELECT id,title,notes,source_path,source_path_key,section_id,date,due_date,start_time,end_time,duration_minutes,priority,status,type,is_all_day,day_period,recurrence_rule,recurrence_type,recurrence_interval,recurrence_days,recurrence_until,parent_task_id,created_at,updated_at,completed_at, CASE
+SELECT id,title,notes,source_path,source_path_key,(SELECT id FROM sections WHERE id=tasks.section_id),date,due_date,start_time,end_time,duration_minutes,priority,status,type,is_all_day,day_period,recurrence_rule,recurrence_type,recurrence_interval,recurrence_days,recurrence_until,(SELECT id FROM tasks AS parent WHERE parent.id=tasks.parent_task_id),created_at,updated_at,completed_at, CASE
   WHEN source_path IS NOT NULL AND date IS NULL AND due_date IS NULL AND start_time IS NULL
     AND end_time IS NULL AND duration_minutes IS NULL AND day_period IS NULL AND is_all_day=0
     AND status='pending' AND type='task' AND priority='normal' AND completed_at IS NULL
@@ -59,7 +70,7 @@ CREATE TABLE task_tags_next (
   FOREIGN KEY (task_id) REFERENCES tasks_next(id) ON DELETE CASCADE,
   FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
-INSERT INTO task_tags_next SELECT task_id,tag_id FROM task_tags;
+INSERT INTO task_tags_next SELECT task_id,tag_id FROM task_tags JOIN tasks_next ON tasks_next.id=task_id JOIN tags ON tags.id=tag_id;
 DROP TABLE task_tags;
 DROP TABLE tasks;
 ALTER TABLE tasks_next RENAME TO tasks;
