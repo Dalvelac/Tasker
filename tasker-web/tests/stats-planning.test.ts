@@ -62,6 +62,9 @@ test('planner queues, section counts and summaries agree about notes, cancellati
   assert.equal(data.filter((row) => isActionable(row, '2026-11-01')).length, 2)
   assert.equal((await (await overview(ctx)).json()).data.totals.pending_total, 2)
   assert.equal((await (await sections(ctx)).json()).data.find((s: { id: number }) => s.id === 1).pending_count, 2)
+  const {onRequestGet:list}=loadFunction<typeof import('../functions/api/tasks/index.ts')>('functions/api/tasks/index.ts')
+  const search=await list({env:h.env,request:new Request('https://test/api/tasks?includeDone=true&kind=planner&today=2026-11-01&q=pending')})
+  assert.equal((await search.json()).data.length,1)
   const dashboard = (await (await today(ctx)).json()).data
   assert.equal(dashboard.overdue.length, 1)
   assert.equal(dashboard.urgent.length, 2)

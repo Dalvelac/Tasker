@@ -1,3 +1,5 @@
+import { effectiveStatus } from '../../shared/planner'
+import { todayKey } from '../lib/dates'
 import { useState } from 'react'
 import type { Task } from '../features/tasks/types'
 import { viewUrl, followLink } from '../app/routes'
@@ -52,7 +54,7 @@ export function SearchModal({ tasks, onClose }: { tasks: Task[]; onClose: () => 
                 <strong>{task.title}</strong>
                 <span>{task.notes || task.source_path || task.section_name || 'Inbox'}</span>
               </div>
-              <span className="pill">{task.kind === 'note' ? 'Note' : task.status}</span>
+              <span className="pill">{task.kind === 'note' ? 'Note' : effectiveStatus(task,todayKey())}</span>
             </a>
           )
         })}

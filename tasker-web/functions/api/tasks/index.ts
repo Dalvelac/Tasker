@@ -52,9 +52,9 @@ export async function onRequestGet(context: AppContext) {
   const search = params.get('q')?.trim();
   if (search) {
     filters.push(
-      "instr(lower(tasks.title || ' ' || coalesce(tasks.notes,'') || ' ' || coalesce(tasks.source_path,'') || ' ' || coalesce(sections.name,'') || ' ' || tasks.priority || ' ' || tasks.status),lower(?)) > 0",
+      "instr(lower(tasks.title || ' ' || coalesce(tasks.notes,'') || ' ' || coalesce(tasks.source_path,'') || ' ' || coalesce(sections.name,'') || ' ' || tasks.priority || ' ' || CASE WHEN tasks.status='postponed' AND tasks.date<=? THEN 'pending' ELSE tasks.status END),lower(?)) > 0",
     );
-    values.push(search);
+    values.push(day.today, search);
   }
   const summary = params.get('summary') === 'true';
   const columns = taskColumns(summary, !!search);
