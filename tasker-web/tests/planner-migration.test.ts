@@ -27,6 +27,8 @@ test('upgrades vaults and mixed entries without changing IDs, content, relations
     INSERT INTO task_tags VALUES(21,12);
     INSERT INTO tasks(id,title,section_id,parent_task_id) VALUES(30,'Keep after removal',997,998);
     INSERT INTO task_tags VALUES(30,999),(996,12);
+    INSERT INTO tasks(id,title,source_path) VALUES(40,'Former series','Series.md');
+    INSERT INTO tasks(id,title,parent_task_id) VALUES(41,'Surviving occurrence',40);
     INSERT INTO tasks(id,title) VALUES(500,'retired'); DELETE FROM tasks WHERE id=500;`)
   upgraded.exec(readProjectFile('migrations/0006_planner_integrity.sql'))
   const rows = upgraded.prepare('SELECT id,kind,notes,parent_task_id,completed_at FROM tasks ORDER BY id').all()
@@ -37,6 +39,8 @@ test('upgrades vaults and mixed entries without changing IDs, content, relations
       [20, 'review'],
       [21, 'review'],
       [30, 'task'],
+      [40, 'review'],
+      [41, 'task'],
     ],
   )
   assert.equal(rows[0].notes, '    code')

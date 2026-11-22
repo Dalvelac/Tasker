@@ -54,12 +54,15 @@ CREATE TABLE tasks_next (
   FOREIGN KEY (section_id) REFERENCES sections(id) ON DELETE SET NULL,
   FOREIGN KEY (parent_task_id) REFERENCES tasks_next(id) ON DELETE SET NULL
 );
+-- This index serves the classification query and is removed with the old tasks table.
+CREATE INDEX idx_migration_0006_parent ON tasks(parent_task_id);
 INSERT INTO tasks_next (id,title,notes,source_path,source_path_key,section_id,date,due_date,start_time,end_time,duration_minutes,priority,status,type,is_all_day,day_period,recurrence_rule,recurrence_type,recurrence_interval,recurrence_days,recurrence_until,parent_task_id,created_at,updated_at,completed_at,kind)
 SELECT id,title,notes,source_path,source_path_key,(SELECT id FROM sections WHERE id=tasks.section_id),date,due_date,start_time,end_time,duration_minutes,priority,status,type,is_all_day,day_period,recurrence_rule,recurrence_type,recurrence_interval,recurrence_days,recurrence_until,(SELECT id FROM tasks AS parent WHERE parent.id=tasks.parent_task_id),created_at,updated_at,completed_at, CASE
   WHEN source_path IS NOT NULL AND date IS NULL AND due_date IS NULL AND start_time IS NULL
     AND end_time IS NULL AND duration_minutes IS NULL AND day_period IS NULL AND is_all_day=0
     AND status='pending' AND type='task' AND priority='normal' AND completed_at IS NULL
     AND recurrence_type IS NULL AND recurrence_rule IS NULL AND parent_task_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM tasks child WHERE child.parent_task_id=tasks.id)
     AND NOT EXISTS (SELECT 1 FROM task_tags WHERE task_id=tasks.id) THEN 'note'
   WHEN source_path IS NOT NULL OR section_id IN (SELECT id FROM sections WHERE is_vault=1) THEN 'review'
   ELSE 'task' END FROM tasks;
@@ -102,4 +105,3 @@ CREATE TABLE IF NOT EXISTS task_changes (
   child_id INTEGER,
   undo_attempt TEXT
 );
-
